@@ -164,12 +164,37 @@ export default function ClubPage() {
         setStudentCount(prev => prev - 1);
     };
 
+    // AI 출력에서 메타 정보(글자수, 분석 내용 등) 제거
+    const cleanMetaInfo = (text) => {
+        if (!text) return text;
+
+        // 괄호 안의 메타 정보 제거: (자세한 내용 포함, 330자), (약 500자), (글자수: 330) 등
+        let cleaned = text.replace(/\s*\([^)]*\d+자[^)]*\)/g, '');
+        cleaned = cleaned.replace(/\s*\([^)]*글자[^)]*\)/g, '');
+        cleaned = cleaned.replace(/\s*\([^)]*자세한[^)]*\)/g, '');
+        cleaned = cleaned.replace(/\s*\([^)]*내용\s*포함[^)]*\)/g, '');
+
+        // 끝부분의 메타 정보 제거: "--- 330자" 또는 "[330자]" 등
+        cleaned = cleaned.replace(/\s*[-─]+\s*\d+자\s*$/g, '');
+        cleaned = cleaned.replace(/\s*\[\d+자\]\s*$/g, '');
+        cleaned = cleaned.replace(/\s*\d+자\s*$/g, '');
+
+        // 분석/검증 관련 문구 제거
+        cleaned = cleaned.replace(/\s*\[분석[^\]]*\]/g, '');
+        cleaned = cleaned.replace(/\s*\[검증[^\]]*\]/g, '');
+
+        return cleaned.trim();
+    };
+
     // 글자수 초과시 마지막 완전한 문장까지만 잘라내는 후처리 함수
     const truncateToCharLimit = (text, maxChars) => {
-        if (!text || text.length <= maxChars) return text;
+        // 먼저 메타 정보 제거
+        let cleaned = cleanMetaInfo(text);
+
+        if (!cleaned || cleaned.length <= maxChars) return cleaned;
 
         // 최대 글자수까지 자르기
-        let truncated = text.substring(0, maxChars);
+        let truncated = cleaned.substring(0, maxChars);
 
         // 마지막 완전한 문장(마침표)까지 찾기
         const lastPeriodIndex = truncated.lastIndexOf('.');
@@ -283,6 +308,8 @@ ${activitiesText}
 ${lengthInstruction}
 
 **절대 분석 내용이나 검증 포인트를 출력하지 마세요. 오직 동아리 특기사항 본문만 출력하세요.**
+**절대로 "(자세한 내용 포함, 330자)", "(약 500자)", "--- 330자" 같은 글자수나 메타 정보를 출력하지 마세요.**
+**오직 순수한 동아리 특기사항 본문 텍스트만 출력하세요. 어떤 부가 설명도 없이 본문만 출력합니다.**
     `;
     };
 
