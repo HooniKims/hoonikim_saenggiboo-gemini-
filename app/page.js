@@ -84,7 +84,7 @@ export default function Home() {
       {/* Bottom Section (Vertical Layout) */}
       <section className="bottom-section" style={{ display: 'flex', flexDirection: 'column', gap: '30px', marginBottom: '60px' }}>
         {/* Chrome Extension */}
-        <a href="#" className="info-card" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <a href="https://chromewebstore.google.com/detail/lfmnbolglechpfpndkknofcfiaefnbho?utm_source=item-share-cb" target="_blank" rel="noopener noreferrer" className="info-card" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             <div className="info-icon">
               <Download size={24} />
