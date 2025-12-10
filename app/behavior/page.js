@@ -79,6 +79,12 @@ export default function BehaviorPage() {
 
             for (let i = 0; i < data.length; i++) {
                 const row = data[i];
+
+                // 헤더 행의 모든 열 이름 출력 (디버깅용)
+                if (i === 0) {
+                    console.log("[엑셀 파싱] 헤더 행:", row.map((cell, idx) => `[${idx}]${String(cell).trim()}`).join(" | "));
+                }
+
                 for (let j = 0; j < row.length; j++) {
                     const cellValue = String(row[j]).trim().replace(/\s/g, "");
 
@@ -87,7 +93,12 @@ export default function BehaviorPage() {
                         headerRowIndex = i;
                     }
 
-                    if (cellValue.includes("행동") || cellValue.includes("관찰") || cellValue.includes("특성")) {
+                    // 행동 관찰 결과 열 인식: 다양한 키워드 지원
+                    // cellValue는 공백이 제거된 상태이므로 공백 없는 키워드로 비교
+                    if (cellValue.includes("관찰결과") || cellValue.includes("행동관찰") ||
+                        cellValue.includes("행발") || cellValue.includes("행동") ||
+                        cellValue.includes("관찰") || cellValue.includes("결과") ||
+                        cellValue.includes("특성") || cellValue.includes("종합의견")) {
                         observationColIndex = j;
                     }
                 }
@@ -98,16 +109,21 @@ export default function BehaviorPage() {
             let idCounter = 1;
 
             if (nameColIndex !== -1) {
+                console.log(`[엑셀 파싱] nameColIndex: ${nameColIndex} observationColIndex: ${observationColIndex} headerRowIndex: ${headerRowIndex}`);
+
                 for (let i = headerRowIndex + 1; i < data.length; i++) {
                     const row = data[i];
                     const name = row[nameColIndex];
                     const observation = observationColIndex !== -1 ? row[observationColIndex] : "";
 
                     if (name && typeof name === 'string' && name.trim() !== "") {
+                        const observationText = observation ? String(observation).trim() : "";
+                        console.log(`[엑셀 파싱] 학생: ${name.trim()} 관찰결과: ${observationText}`);
+
                         newStudents.push({
                             id: idCounter++,
                             name: name.trim(),
-                            observation: observation ? String(observation).trim() : "",
+                            observation: observationText,
                             result: "",
                             status: "idle"
                         });
