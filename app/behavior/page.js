@@ -98,7 +98,8 @@ export default function BehaviorPage() {
                     if (cellValue.includes("관찰결과") || cellValue.includes("행동관찰") ||
                         cellValue.includes("행발") || cellValue.includes("행동") ||
                         cellValue.includes("관찰") || cellValue.includes("결과") ||
-                        cellValue.includes("특성") || cellValue.includes("종합의견")) {
+                        cellValue.includes("특성") || cellValue.includes("종합의견") ||
+                        cellValue.includes("세부능력") || cellValue.includes("특기사항") || cellValue.includes("세특")) {
                         observationColIndex = j;
                     }
                 }
