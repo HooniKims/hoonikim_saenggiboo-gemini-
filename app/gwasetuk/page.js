@@ -100,9 +100,11 @@ export default function GwasetukPage() {
                         nameColIndex = j;
                         headerRowIndex = i;
                     }
-                    // 활동 내용 열 인식
+                    // 활동 내용 열 인식 (세부능력 및 특기사항 포함)
                     if (cellValue.includes("활동") || cellValue.includes("내용") ||
-                        cellValue.includes("관찰내용") || cellValue.includes("관찰기록")) {
+                        cellValue.includes("관찰내용") || cellValue.includes("관찰기록") ||
+                        cellValue.includes("세부능력") || cellValue.includes("특기사항") ||
+                        cellValue.includes("세특") || cellValue.includes("개별활동")) {
                         activityColIndex = j;
                     }
                 }
