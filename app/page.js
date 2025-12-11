@@ -30,6 +30,33 @@ export default function Home() {
         </div>
       </div>
 
+      {/* Usage Tips Box */}
+      <div className="usage-tips-box">
+        <div className="usage-tips-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" /></svg>
+        </div>
+        <div className="usage-tips-content">
+          <h3>📌 사용 안내 <span className="contact-info">(사용 중 문제점이나 개선사항은 greenguyhh@gmail.com 으로 보내주시면 답변 드리겠습니다.)</span></h3>
+          <ol>
+            <li>
+              처음 사용하신다면 하단의 <span className="emphasis">사용 방법 영상</span> 시청을 추천합니다.
+            </li>
+            <li>
+              영상 내용 외의 추가된 내용
+              <ol className="sub-list">
+                <li>각 페이지의 <span className="emphasis-purple">엑셀파일</span>은 <span className="emphasis">NEIS 세특의 엑셀 내려 받기</span> 후 업로드 하면 <span className="emphasis-orange">자동으로 학생이 추가</span>됩니다. 또한 엑셀 파일 안의 <span className="emphasis">'세부능력 및 특기사항'</span> 칸에 개별 내용을 입력 후 업로드 하시면 자동으로 <span className="emphasis-orange">개별 학생들의 내용도 추가</span>됩니다.</li>
+                <li><span className="emphasis-purple">세특</span>과 <span className="emphasis-purple">동아리활동</span> 작성에서 <span className="emphasis">'학생별 개별 활동'</span> 내용을 입력할 수 있습니다.</li>
+                <li>입력된 <span className="emphasis">학생별 개별 활동 내용</span>과 <span className="emphasis">공통 활동 내용</span>을 조합하여 생성해줍니다.</li>
+                <li>세특 <span className="emphasis-orange">'활동 내용 입력'</span> 칸에 <span className="emphasis-orange">'추가 지침 사항'</span> 부분을 만들어 최우선적으로 적용할 지침을 정할 수 있습니다.</li>
+              </ol>
+            </li>
+            <li>
+              <span className="emphasis-purple">나이스 자동입력 확장프로그램</span>을 사용할 때에는 <span className="emphasis">'나이스'</span>와 <span className="emphasis">'생기부 작성 도우미 사이트'</span>를 <span className="emphasis-orange">같은 브라우저</span>내에서 사용해주세요.
+            </li>
+          </ol>
+        </div>
+      </div>
+
       {/* Main Menu Grid (2x2) */}
       <section className="menu-grid">
         {/* Card 1: Gwasetuk */}
