@@ -14,8 +14,8 @@ export default function ClubPage() {
     const [clubName, setClubName] = useState(""); // Changed from subjectName
     const [schoolLevel, setSchoolLevel] = useState("middle"); // Default to middle
 
-    // Removed 'grade' from student object
-    const [students, setStudents] = useState([{ id: 1, name: "", result: "", status: "idle" }]);
+    // Removed 'grade' from student object, added individualActivity
+    const [students, setStudents] = useState([{ id: 1, name: "", individualActivity: "", result: "", status: "idle" }]);
     const [activities, setActivities] = useState([""]);
     const [textLength, setTextLength] = useState("1500");
     const [manualLength, setManualLength] = useState("");
@@ -45,7 +45,7 @@ export default function ClubPage() {
         const newStudents = [...students];
         if (count > newStudents.length) {
             for (let i = newStudents.length + 1; i <= count; i++) {
-                newStudents.push({ id: i, name: "", result: "", status: "idle" });
+                newStudents.push({ id: i, name: "", individualActivity: "", result: "", status: "idle" });
             }
         } else {
             newStudents.splice(count);
@@ -88,8 +88,10 @@ export default function ClubPage() {
             const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
 
             let nameColIndex = -1;
+            let activityColIndex = -1;
             let headerRowIndex = -1;
 
+            // 1. Find the header row and columns
             for (let i = 0; i < data.length; i++) {
                 const row = data[i];
                 for (let j = 0; j < row.length; j++) {
@@ -97,7 +99,13 @@ export default function ClubPage() {
                     if (cellValue === "성명" || cellValue === "이름") {
                         nameColIndex = j;
                         headerRowIndex = i;
-                        break;
+                    }
+                    // 활동 내용 열 인식 (세부능력 및 특기사항 포함)
+                    if (cellValue.includes("활동") || cellValue.includes("내용") ||
+                        cellValue.includes("관찰내용") || cellValue.includes("관찰기록") ||
+                        cellValue.includes("세부능력") || cellValue.includes("특기사항") ||
+                        cellValue.includes("세특") || cellValue.includes("개별활동")) {
+                        activityColIndex = j;
                     }
                 }
                 if (nameColIndex !== -1) break;
@@ -106,22 +114,37 @@ export default function ClubPage() {
             const newStudents = [];
             let idCounter = 1;
 
+            // 2. Extract names and activities if column found
             if (nameColIndex !== -1) {
+                console.log(`[엑셀 파싱] nameColIndex: ${nameColIndex} activityColIndex: ${activityColIndex} headerRowIndex: ${headerRowIndex}`);
+
                 for (let i = headerRowIndex + 1; i < data.length; i++) {
                     const row = data[i];
                     const name = row[nameColIndex];
+                    const activity = activityColIndex !== -1 ? row[activityColIndex] : "";
+
                     if (name && typeof name === 'string' && name.trim() !== "") {
-                        newStudents.push({ id: idCounter++, name: name.trim(), result: "", status: "idle" });
+                        const activityText = activity ? String(activity).trim() : "";
+                        console.log(`[엑셀 파싱] 학생: ${name.trim()} 활동내용: ${activityText}`);
+
+                        newStudents.push({
+                            id: idCounter++,
+                            name: name.trim(),
+                            individualActivity: activityText,
+                            result: "",
+                            status: "idle"
+                        });
                     }
                 }
             } else {
+                // Fallback: Try to find names in the first few columns if no header found
                 for (let i = 0; i < data.length; i++) {
                     const row = data[i];
                     for (let j = 0; j < Math.min(row.length, 3); j++) {
                         const val = row[j];
                         if (typeof val === 'string' && val.length > 1 && val.length < 10) {
                             if (val !== "성명" && val !== "이름") {
-                                newStudents.push({ id: idCounter++, name: val.trim(), result: "", status: "idle" });
+                                newStudents.push({ id: idCounter++, name: val.trim(), individualActivity: "", result: "", status: "idle" });
                                 break;
                             }
                         }
@@ -221,7 +244,23 @@ export default function ClubPage() {
         return truncated.trim();
     };
 
-    const generatePrompt = (student, selectedActivities, targetChars) => {
+    // 키워드 매칭으로 유사도 계산 (학생별 활동과 공통 활동 간의 관련성 점수)
+    const calculateRelevanceScore = (commonActivity, individualActivity) => {
+        if (!individualActivity || !commonActivity) return 0;
+
+        const individualKeywords = individualActivity.toLowerCase().split(/[\s,]+/);
+        const commonKeywords = commonActivity.toLowerCase().split(/[\s,]+/);
+
+        let score = 0;
+        for (const keyword of individualKeywords) {
+            if (keyword.length > 1 && commonKeywords.some(ck => ck.includes(keyword) || keyword.includes(ck))) {
+                score++;
+            }
+        }
+        return score;
+    };
+
+    const generatePrompt = (student, selectedActivities, targetChars, individualActivity) => {
         // Perspectives for variety
         const perspectives = [
             '특히 학생의 적극성과 참여도를 중심으로',
@@ -271,7 +310,11 @@ export default function ClubPage() {
         const targetLevel = schoolLevelMap[schoolLevel] || "중학생";
         const clubContext = clubName ? `동아리명: ${clubName}` : "동아리명: 미지정 (일반적인 동아리 활동으로 간주)";
 
+        // 공통 활동과 학생별 개별 활동 조합
         const activitiesText = selectedActivities.map(a => `- ${a}`).join("\n");
+        const individualActivityText = individualActivity && individualActivity.trim() !== ""
+            ? `\n\n[이 학생의 개별 활동 내용]\n${individualActivity}\n(위 개별 활동 내용과 공통 활동 내용을 연결하여 통합적으로 서술해 주세요.)`
+            : "";
 
         return `
 당신은 대한민국 고등학교 교사로서 학생의 학교생활기록부 동아리 활동 특기사항을 작성하는 전문가입니다.
@@ -302,8 +345,9 @@ export default function ClubPage() {
 대상 학교급: ${targetLevel}
 ${clubContext}
 
-입력된 활동 내용:
+입력된 공통 활동 내용:
 ${activitiesText}
+${individualActivityText}
 
 ${lengthInstruction}
 
@@ -317,32 +361,48 @@ ${lengthInstruction}
         const validActivities = activities.filter(a => a.trim() !== "");
         if (validActivities.length === 0) return;
 
+        // Calculate Target Chars
         let targetChars = 500;
         if (textLength === "1500") targetChars = 500;
         else if (textLength === "1000") targetChars = 330;
         else if (textLength === "600") targetChars = 200;
         else if (textLength === "manual") targetChars = parseInt(manualLength) || 500;
 
-        const shuffledActivities = [...validActivities].sort(() => 0.5 - Math.random());
-        let selectedActivities = shuffledActivities;
+        // 학생별 개별 활동이 있으면 관련성 점수를 계산하여 공통 활동 정렬
+        const individualActivity = student.individualActivity || "";
+        let sortedActivities;
+
+        if (individualActivity.trim() !== "") {
+            // 학생별 활동과 관련성이 높은 공통 활동을 우선 선택
+            sortedActivities = [...validActivities].sort((a, b) => {
+                const scoreA = calculateRelevanceScore(a, individualActivity);
+                const scoreB = calculateRelevanceScore(b, individualActivity);
+                return scoreB - scoreA; // 높은 점수가 먼저 오도록
+            });
+        } else {
+            // 개별 활동이 없으면 랜덤 셔플
+            sortedActivities = [...validActivities].sort(() => 0.5 - Math.random());
+        }
+
+        let selectedActivities = sortedActivities;
 
         // Activity Selection Logic based on Target Chars - 강화된 로직
         if (targetChars < 80) {
             // 매우 짧으면 1개만 선택
-            selectedActivities = shuffledActivities.slice(0, 1);
+            selectedActivities = sortedActivities.slice(0, 1);
         } else if (targetChars <= 150) {
             // 150자 이하: 최대 2개
-            selectedActivities = shuffledActivities.slice(0, Math.min(2, shuffledActivities.length));
+            selectedActivities = sortedActivities.slice(0, Math.min(2, sortedActivities.length));
         } else if (targetChars <= 250) {
             // 250자 이하: 최대 3개
-            selectedActivities = shuffledActivities.slice(0, Math.min(3, shuffledActivities.length));
+            selectedActivities = sortedActivities.slice(0, Math.min(3, sortedActivities.length));
         } else if (targetChars <= 350) {
             // 350자 이하 (1000byte): 최대 4개
-            selectedActivities = shuffledActivities.slice(0, Math.min(4, shuffledActivities.length));
+            selectedActivities = sortedActivities.slice(0, Math.min(4, sortedActivities.length));
         }
         // 350자 초과: 모든 활동 사용
 
-        const prompt = generatePrompt(student, selectedActivities, targetChars);
+        const prompt = generatePrompt(student, selectedActivities, targetChars, individualActivity);
 
         try {
             updateStudent(student.id, "status", "loading");
@@ -668,7 +728,18 @@ ${lengthInstruction}
                                         />
                                     </div>
 
-                                    {/* Grade Buttons Removed for Club Activity */}
+                                    {/* Individual Activity Textarea */}
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-xs font-semibold text-gray-500 ml-1">학생별 개별 활동</label>
+                                        <textarea
+                                            value={student.individualActivity}
+                                            onChange={(e) => updateStudent(student.id, "individualActivity", e.target.value)}
+                                            placeholder="학생별 개별적으로 활동한 내용을 입력해주세요."
+                                            className="form-input"
+                                            style={{ fontSize: '0.9rem', minHeight: '60px', resize: 'vertical' }}
+                                            rows={2}
+                                        />
+                                    </div>
 
                                     {/* Action Buttons (Generate & Clear) */}
                                     <div className="flex gap-2 mt-4">

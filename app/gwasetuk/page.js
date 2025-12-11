@@ -16,6 +16,7 @@ export default function GwasetukPage() {
 
     const [students, setStudents] = useState([{ id: 1, name: "", grade: "A", individualActivity: "", result: "", status: "idle" }]);
     const [activities, setActivities] = useState([""]);
+    const [additionalInstructions, setAdditionalInstructions] = useState("");
     const [textLength, setTextLength] = useState("1500"); // 1500, 1000, 600, manual
     const [manualLength, setManualLength] = useState("");
     const [isGenerating, setIsGenerating] = useState(false);
@@ -261,7 +262,7 @@ export default function GwasetukPage() {
         return score;
     };
 
-    const generatePrompt = (student, selectedActivities, targetChars, individualActivity) => {
+    const generatePrompt = (student, selectedActivities, targetChars, individualActivity, additionalInstructions) => {
         const gradePrompts = {
             A: `// A등급 프롬프트\n등급: A (탁월함)\n이 학생은 학업 역량과 자기주도성이 매우 뛰어난 학생입니다.\n활동의 깊이와 수준이 높으며, 심화된 탐구와 융합적 사고가 잘 드러나도록 작성하세요.`,
             B: `// B등급 프롬프트\n등급: B (우수함)\n이 학생은 주어진 과제를 성실히 수행하고 우수한 학업 역량을 보여주는 학생입니다.\nA등급보다는 최상급 표현(탁월함, 매우 뛰어남 등)을 줄이고, 과제를 잘 완수하고 성실히 참여했다는 점을 중심으로 작성하세요.`,
@@ -347,6 +348,12 @@ ${individualActivityText}
 ${gradePrompts[student.grade]}
 ${lengthInstruction}
 
+${additionalInstructions && additionalInstructions.trim() !== "" ? `
+## ⚠️ 반드시 지켜야 할 추가 지침 (최우선 적용) ⚠️
+아래 지침은 다른 모든 규칙보다 우선하여 반드시 엄격히 준수해야 합니다:
+${additionalInstructions}
+---
+` : ""}
 **절대 분석 내용이나 검증 포인트를 출력하지 마세요. 오직 세특 본문만 출력하세요.**
 **절대로 "(자세한 내용 포함, 330자)", "(약 500자)", "--- 330자" 같은 글자수나 메타 정보를 출력하지 마세요.**
 **오직 순수한 세특 본문 텍스트만 출력하세요. 어떤 부가 설명도 없이 본문만 출력합니다.**
@@ -398,7 +405,7 @@ ${lengthInstruction}
         }
         // 350자 초과: 모든 활동 사용
 
-        const prompt = generatePrompt(student, selectedActivities, targetChars, individualActivity);
+        const prompt = generatePrompt(student, selectedActivities, targetChars, individualActivity, additionalInstructions);
 
         try {
             updateStudent(student.id, "status", "loading");
@@ -626,6 +633,29 @@ ${lengthInstruction}
                         >
                             <Plus size={18} /> 활동 추가
                         </button>
+
+                        {/* 추가 지침 사항 */}
+                        <hr className="border-gray-200 my-2" />
+                        <div className="form-group mb-0">
+                            <label className="form-label" style={{ color: '#dc2626' }}>⚠️ 추가 지침 사항 (최우선 적용)</label>
+                            <textarea
+                                value={additionalInstructions}
+                                onChange={(e) => setAdditionalInstructions(e.target.value)}
+                                placeholder="예: 축구는 단체 경기가 아닌 개인별 수행 내용을 기준으로 작성해 주세요."
+                                className="form-input"
+                                style={{
+                                    fontSize: '0.9rem',
+                                    minHeight: '60px',
+                                    resize: 'vertical',
+                                    borderColor: '#fecaca',
+                                    backgroundColor: '#fef2f2'
+                                }}
+                                rows={2}
+                            />
+                            <p style={{ fontSize: '0.75rem', color: '#dc2626', marginTop: '4px' }}>
+                                위 지침은 AI가 최우선으로 엄격히 준수합니다.
+                            </p>
+                        </div>
                     </div>
                 </div>
             </div>
