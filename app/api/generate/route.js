@@ -15,8 +15,8 @@ export async function POST(req) {
             );
         }
 
-        // Gemini API endpoint with model gemini-2.0-flash-exp
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${finalApiKey}`;
+        // Gemini API endpoint with model gemini-2.5-flash
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${finalApiKey}`;
 
         // Prepare the request payload for Gemini API
         const payload = {
@@ -51,7 +51,7 @@ export async function POST(req) {
         const responseData = await response.json();
 
         // Parse Gemini API response
-        if (!responseData.candidates || !responseData.candidates[0] || 
+        if (!responseData.candidates || !responseData.candidates[0] ||
             !responseData.candidates[0].content || !responseData.candidates[0].content.parts ||
             !responseData.candidates[0].content.parts[0] || !responseData.candidates[0].content.parts[0].text) {
             throw new Error('Gemini API 응답 형식 오류');

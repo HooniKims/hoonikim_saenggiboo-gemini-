@@ -308,3 +308,7 @@ NEIS 자동 입력 크롬 확장 프로그램 개발이 완료되었습니다.
     - [x] 스타일: borderColor '#fecaca', backgroundColor '#fef2f2' (빨간색 테마)
 
 
+## Phase 19: Gemini 모델 마이그레이션 (완료)
+- [x] **Gemini 2.5 Flash 업그레이드**
+    - [x] Gemini 2.0 Flash 지원 중단 공지에 따른 모델 변경 (`gemini-2.0-flash-exp` -> `gemini-2.5-flash`)
+    - [x] API 라우트(`app/api/generate/route.js`) 엔드포인트 수정
