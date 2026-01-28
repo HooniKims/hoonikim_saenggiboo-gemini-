@@ -226,6 +226,34 @@ export default function BehaviorPage() {
         return truncated.trim();
     };
 
+    // 클립보드 복사 함수
+    const copyToClipboard = async (studentId, text) => {
+        if (!text) return;
+
+        try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(text);
+            } else {
+                // Fallback for non-secure contexts
+                const textArea = document.createElement("textarea");
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+            }
+
+            // 피드백 표시
+            updateStudent(studentId, "copyFeedback", true);
+            setTimeout(() => {
+                updateStudent(studentId, "copyFeedback", false);
+            }, 1500);
+        } catch (err) {
+            console.error('복사 실패:', err);
+            alert('복사에 실패했습니다.');
+        }
+    };
+
     const generatePrompt = (student, targetChars) => {
         let minChar, maxChar;
         if (targetChars === 200) {
@@ -259,6 +287,11 @@ export default function BehaviorPage() {
 ## 작성 목표
 교사가 입력한 학생의 행동 특성을 바탕으로, 학생의 인성, 잠재력, 공동체 역량 등을 종합적으로 관찰하여 구체적이고 긍정적인 변화와 성장을 드러내는 행발을 작성하세요.
 
+## 핵심 원칙
+- 오직 활동 내용만 서술하고, 마무리/요약/정리 문장은 절대 작성하지 않음
+- 구체적 사례 중심 서술 및 긍정적 재구성
+- 배려, 협력, 리더십 등 핵심 역량 강조
+
 ## 작성 가이드
 1. **핵심 역량 강조**: 배려, 나눔, 협력, 타인 존중, 갈등 관리, 관계 지향성, 규칙 준수 등 인성 요소와 리더십, 자기주도성 등 잠재력을 중심으로 서술하세요.
 2. **구체적 사례 중심**: 추상적인 칭찬보다는 구체적인 행동 사례나 에피소드를 통해 학생의 특성이 잘 드러나도록 하세요.
@@ -273,7 +306,11 @@ export default function BehaviorPage() {
 5. **문체**: 명사형 종결어미(~함, ~임, ~음)를 사용하여 간결하고 명확하게 작성하세요.
 6. **마침표 준수**: **모든 문장은 반드시 마침표(.)로 끝나야 합니다.**
 
-## 절대 금지사항
+## ⛔ 절대 금지 (마무리 문장)
+다음 표현들은 절대 사용하지 마세요: '이러한', '이를 통해', '이와 같이', '이런', '앞으로', '향후', '결과적으로', '종합적으로'
+**마지막 문장도 반드시 구체적인 활동 내용이나 학습 과정에 대한 서술이어야 합니다.**
+
+## 절대 금지사항 (기타)
 - **부정적 표현 금지**: "~하지만", "~에도 불구하고", "부족하다", "미흡하다" 등 부정적 뉘앙스의 표현을 절대 사용하지 마세요.
 - **특정 성명, 기관명, 상호명 등은 기재 불가**
 - **"학생은", "OO는", "위 학생은" 등 주어를 절대 사용하지 마세요.**
@@ -619,6 +656,23 @@ ${lengthInstruction}
                                             placeholder="AI 생성 결과가 여기에 표시됩니다."
                                             className="form-textarea textarea-auto w-full"
                                         />
+
+                                        {/* Copy Button */}
+                                        {student.result && (
+                                            <button
+                                                onClick={() => copyToClipboard(student.id, student.result)}
+                                                className="absolute bottom-3 right-3 px-3 py-1.5 rounded-md text-xs font-bold transition-all"
+                                                style={{
+                                                    backgroundColor: student.copyFeedback ? '#10b981' : '#f3f4f6',
+                                                    color: student.copyFeedback ? 'white' : '#4b5563',
+                                                    border: '1px solid',
+                                                    borderColor: student.copyFeedback ? '#10b981' : '#d1d5db',
+                                                    zIndex: 10
+                                                }}
+                                            >
+                                                {student.copyFeedback ? '복사됨!' : '복사'}
+                                            </button>
+                                        )}
 
                                         {/* Loading Overlay */}
                                         {student.status === "loading" && (

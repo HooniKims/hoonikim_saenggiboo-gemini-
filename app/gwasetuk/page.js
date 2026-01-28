@@ -243,7 +243,34 @@ export default function GwasetukPage() {
             }
         }
 
-        return truncated.trim();
+    };
+
+    // 클립보드 복사 함수
+    const copyToClipboard = async (studentId, text) => {
+        if (!text) return;
+
+        try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(text);
+            } else {
+                // Fallback for non-secure contexts
+                const textArea = document.createElement("textarea");
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+            }
+
+            // 피드백 표시
+            updateStudent(studentId, "copyFeedback", true);
+            setTimeout(() => {
+                updateStudent(studentId, "copyFeedback", false);
+            }, 1500);
+        } catch (err) {
+            console.error('복사 실패:', err);
+            alert('복사에 실패했습니다.');
+        }
     };
 
     // 키워드 매칭으로 유사도 계산 (학생别 활동과 공통 활동 간의 관련성 점수)
@@ -332,14 +359,20 @@ export default function GwasetukPage() {
 대상 학교급: ${targetLevel}
 ${subjectContext}
 
-최우선 목표: 자기주도성, 심화 및 융합 역량, 과정 중심 서술.
-역량 평가 기준: 학업 역량, 진로 역량, 공동체 역량.
-작성 주의사항:
+## 핵심 원칙
+- 오직 활동 내용만 서술하고, 마무리/요약/정리 문장은 절대 작성하지 않음
+- 자기주도성, 심화 및 융합 역량, 과정 중심 서술
+- 역량 평가 기준: 학업 역량, 진로 역량, 공동체 역량
+
+## 작성 주의사항
 1. '학생은', '이 학생은' 등의 주어 사용 금지. 문장은 주어 없이 서술어로 시작하거나 활동을 주어로 할 것.
 2. 과목명이나 프로그램명을 서두에 직접 언급하지 말고, 바로 활동 내용에 대한 서술로 시작할 것.
-3. 전체적인 내용을 요약하거나 정리하는 문장(마무리 멘트)을 작성하지 말 것.
-4. 개별적 관찰 기록, 반드시 명사형 종결어미(~함, ~임 등) 사용, 특정 표현 금지, ${targetLevel} 수준에 맞는 어휘와 표현 사용.
-사실성 및 내용 제한: 입력된 활동 내용 외 절대 날조 금지.
+3. 개별적 관찰 기록, 반드시 명사형 종결어미(~함, ~임 등) 사용, ${targetLevel} 수준에 맞는 어휘와 표현 사용.
+4. 입력된 활동 내용 외 절대 날조 금지.
+
+## ⛔ 절대 금지 (마무리 문장)
+다음 표현들은 절대 사용하지 마세요: '이러한', '이를 통해', '이와 같이', '이런', '앞으로', '향후', '결과적으로', '종합적으로'
+**마지막 문장도 반드시 구체적인 활동 내용이나 학습 과정에 대한 서술이어야 합니다.**
 
 입력된 공통 활동 내용:
 ${activitiesText}
@@ -348,15 +381,14 @@ ${individualActivityText}
 ${gradePrompts[student.grade]}
 ${lengthInstruction}
 
-${additionalInstructions && additionalInstructions.trim() !== "" ? `
-## ⚠️ 반드시 지켜야 할 추가 지침 (최우선 적용) ⚠️
-아래 지침은 다른 모든 규칙보다 우선하여 반드시 엄격히 준수해야 합니다:
-${additionalInstructions}
----
-` : ""}
 **절대 분석 내용이나 검증 포인트를 출력하지 마세요. 오직 세특 본문만 출력하세요.**
 **절대로 "(자세한 내용 포함, 330자)", "(약 500자)", "--- 330자" 같은 글자수나 메타 정보를 출력하지 마세요.**
 **오직 순수한 세특 본문 텍스트만 출력하세요. 어떤 부가 설명도 없이 본문만 출력합니다.**
+${additionalInstructions && additionalInstructions.trim() !== "" ? `
+【🚨 특별 지시 - 반드시 적용 🚨】
+→ "${additionalInstructions}"
+위 지침은 다른 모든 규칙보다 우선하여 반드시 엄격히 준수해야 합니다.
+` : ""}
     `;
     };
 
@@ -375,7 +407,14 @@ ${additionalInstructions}
         const individualActivity = student.individualActivity || "";
         let sortedActivities;
 
-        if (individualActivity.trim() !== "") {
+        // 추가 지침에 '랜덤' 또는 '무작위' 키워드가 있으면 활동 셔플
+        const shouldShuffle = additionalInstructions &&
+            (additionalInstructions.includes('랜덤') || additionalInstructions.includes('무작위'));
+
+        if (shouldShuffle) {
+            // 랜덤 셔플 - AI가 위에서부터 선택해도 결과적으로 랜덤 효과
+            sortedActivities = [...validActivities].sort(() => 0.5 - Math.random());
+        } else if (individualActivity.trim() !== "") {
             // 학생별 활동과 관련성이 높은 공통 활동을 우선 선택
             sortedActivities = [...validActivities].sort((a, b) => {
                 const scoreA = calculateRelevanceScore(a, individualActivity);
@@ -383,8 +422,8 @@ ${additionalInstructions}
                 return scoreB - scoreA; // 높은 점수가 먼저 오도록
             });
         } else {
-            // 개별 활동이 없으면 랜덤 셔플
-            sortedActivities = [...validActivities].sort(() => 0.5 - Math.random());
+            // 개별 활동이 없으면 입력 순서 유지
+            sortedActivities = [...validActivities];
         }
 
         let selectedActivities = sortedActivities;
@@ -840,6 +879,23 @@ ${additionalInstructions}
                                             placeholder="AI 생성 결과가 여기에 표시됩니다."
                                             className="form-textarea textarea-auto w-full"
                                         />
+
+                                        {/* Copy Button */}
+                                        {student.result && (
+                                            <button
+                                                onClick={() => copyToClipboard(student.id, student.result)}
+                                                className="absolute bottom-3 right-3 px-3 py-1.5 rounded-md text-xs font-bold transition-all"
+                                                style={{
+                                                    backgroundColor: student.copyFeedback ? '#10b981' : '#f3f4f6',
+                                                    color: student.copyFeedback ? 'white' : '#4b5563',
+                                                    border: '1px solid',
+                                                    borderColor: student.copyFeedback ? '#10b981' : '#d1d5db',
+                                                    zIndex: 10
+                                                }}
+                                            >
+                                                {student.copyFeedback ? '복사됨!' : '복사'}
+                                            </button>
+                                        )}
 
                                         {/* Loading Overlay */}
                                         {student.status === "loading" && (
