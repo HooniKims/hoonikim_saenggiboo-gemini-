@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Trash2, Download, Wand2, Users, UserX } from "lucide-react";
+import { Trash2, Download, Wand2, Users, UserX, Copy, Check } from "lucide-react";
 import * as XLSX from "xlsx";
 import { writeExcel } from "../../utils/excel";
 import { cleanMetaInfo, truncateToCompleteSentence, getCharacterGuideline, getPromptCharLimit } from "../../utils/textProcessor";
@@ -16,6 +16,7 @@ export default function LetterPage() {
     const [textLength, setTextLength] = useState("1500");
     const [manualLength, setManualLength] = useState("");
     const [isGenerating, setIsGenerating] = useState(false);
+    const [copiedId, setCopiedId] = useState(null);
     const fileInputRef = useRef(null);
 
     // Letter Specific State
@@ -563,6 +564,41 @@ ${lengthInstruction}
                                             </div>
                                         )}
                                     </div>
+
+                                    {/* 복사 버튼 */}
+                                    {student.result && (
+                                        <div className="flex justify-end mt-2">
+                                            <button
+                                                onClick={() => {
+                                                    const copyText = (text) => {
+                                                        if (navigator.clipboard && window.isSecureContext) {
+                                                            navigator.clipboard.writeText(text);
+                                                        } else {
+                                                            const textarea = document.createElement('textarea');
+                                                            textarea.value = text;
+                                                            textarea.style.position = 'fixed';
+                                                            textarea.style.opacity = '0';
+                                                            document.body.appendChild(textarea);
+                                                            textarea.select();
+                                                            document.execCommand('copy');
+                                                            document.body.removeChild(textarea);
+                                                        }
+                                                    };
+                                                    copyText(student.result);
+                                                    setCopiedId(student.id);
+                                                    setTimeout(() => setCopiedId(null), 1500);
+                                                }}
+                                                className={`btn-copy ${copiedId === student.id ? 'copied' : ''}`}
+                                                title="클립보드에 복사"
+                                            >
+                                                {copiedId === student.id ? (
+                                                    <><Check size={14} /> 복사됨!</>
+                                                ) : (
+                                                    <><Copy size={14} /> 복사</>
+                                                )}
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>

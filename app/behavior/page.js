@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Trash2, Download, Wand2, Users, UserX, Copy } from "lucide-react";
+import { Trash2, Download, Wand2, Users, UserX, Copy, Check } from "lucide-react";
 import * as XLSX from "xlsx";
 import { writeExcel } from "../../utils/excel";
 import { cleanMetaInfo, truncateToCompleteSentence, getCharacterGuideline, getPromptCharLimit } from "../../utils/textProcessor";
@@ -17,6 +17,7 @@ export default function BehaviorPage() {
     const [textLength, setTextLength] = useState("1500");
     const [manualLength, setManualLength] = useState("");
     const [isGenerating, setIsGenerating] = useState(false);
+    const [copiedId, setCopiedId] = useState(null);
     const fileInputRef = useRef(null);
 
     // Auto-resize textarea
@@ -566,7 +567,6 @@ ${lengthInstruction}
                                         <div className="flex justify-end mt-2">
                                             <button
                                                 onClick={() => {
-                                                    // Clipboard API fallback for HTTP
                                                     const copyText = (text) => {
                                                         if (navigator.clipboard && window.isSecureContext) {
                                                             navigator.clipboard.writeText(text);
@@ -582,29 +582,17 @@ ${lengthInstruction}
                                                         }
                                                     };
                                                     copyText(student.result);
-                                                    const btn = document.getElementById(`copy-btn-behavior-${student.id}`);
-                                                    if (btn) {
-                                                        btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg><span>복사됨!</span>';
-                                                        setTimeout(() => {
-                                                            btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg><span>복사</span>';
-                                                        }, 1500);
-                                                    }
+                                                    setCopiedId(student.id);
+                                                    setTimeout(() => setCopiedId(null), 1500);
                                                 }}
-                                                id={`copy-btn-behavior-${student.id}`}
-                                                className="btn-secondary"
-                                                style={{
-                                                    padding: '4px 10px',
-                                                    fontSize: '0.75rem',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: '4px',
-                                                    color: '#6b7280',
-                                                    borderColor: '#e5e7eb'
-                                                }}
+                                                className={`btn-copy ${copiedId === student.id ? 'copied' : ''}`}
                                                 title="클립보드에 복사"
                                             >
-                                                <Copy size={14} />
-                                                <span>복사</span>
+                                                {copiedId === student.id ? (
+                                                    <><Check size={14} /> 복사됨!</>
+                                                ) : (
+                                                    <><Copy size={14} /> 복사</>
+                                                )}
                                             </button>
                                         </div>
                                     )}
