@@ -334,3 +334,13 @@ NEIS 자동 입력 크롬 확장 프로그램 개발이 완료되었습니다.
     - [x] 클릭 시 "복사됨!" 피드백 표시 (1.5초 후 복구)
 - [x] **클립보드 API Fallback 구현**
     - [x] `navigator.clipboard` 미지원 환경(HTTP 등)에서도 작동하도록 fallback 로직 적용
+## Phase 23: Gemini 모델 속도 최적화 (완료)
+- [x] **Gemini 2.5 Flash Lite 적용**
+    - [x] 생성 속도 개선을 위해 모델 변경 (`gemini-2.5-flash` -> `gemini-2.5-flash-lite`)
+    - [x] API 라우트(`app/api/generate/route.js`) 엔드포인트 수정
+
+## Phase 24: 생성 글자수 정상화 및 설정 파일 최적화 (완료)
+- [x] **생성 글자수 정상화**
+    - [x] AI 생성 결과의 글자수가 설정된 제한에 맞게 출력되도록 로직 정상화
+- [x] **OpenAI API 기반 설정 파일 복사**
+    - [x] OpenAI API를 사용하는 동일한 웹앱의 설정 파일을 복사하여 적용
