@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Trash2, Download, Wand2, Users, UserX } from "lucide-react";
+import { Trash2, Download, Wand2, Users, UserX, Copy } from "lucide-react";
 import * as XLSX from "xlsx";
 import { writeExcel } from "../../utils/excel";
+import { cleanMetaInfo, truncateToCompleteSentence, getCharacterGuideline, getPromptCharLimit } from "../../utils/textProcessor";
 
 export default function BehaviorPage() {
     // State
@@ -79,12 +80,10 @@ export default function BehaviorPage() {
 
             for (let i = 0; i < data.length; i++) {
                 const row = data[i];
-
                 // 헤더 행의 모든 열 이름 출력 (디버깅용)
                 if (i === 0) {
                     console.log("[엑셀 파싱] 헤더 행:", row.map((cell, idx) => `[${idx}]${String(cell).trim()}`).join(" | "));
                 }
-
                 for (let j = 0; j < row.length; j++) {
                     const cellValue = String(row[j]).trim().replace(/\s/g, "");
 
@@ -93,13 +92,14 @@ export default function BehaviorPage() {
                         headerRowIndex = i;
                     }
 
-                    // 행동 관찰 결과 열 인식: 다양한 키워드 지원
+                    // 행동 관찰 결과 열 인식: 다양한 키워드 지원 (세부능력 및 특기사항 포함)
                     // cellValue는 공백이 제거된 상태이므로 공백 없는 키워드로 비교
-                    if (cellValue.includes("관찰결과") || cellValue.includes("행동관찰") ||
+                    if (cellValue.includes("관찰 결과") || cellValue.includes("행동 관찰") ||
                         cellValue.includes("행발") || cellValue.includes("행동") ||
                         cellValue.includes("관찰") || cellValue.includes("결과") ||
                         cellValue.includes("특성") || cellValue.includes("종합의견") ||
-                        cellValue.includes("세부능력") || cellValue.includes("특기사항") || cellValue.includes("세특")) {
+                        cellValue.includes("세부능력") || cellValue.includes("특기사항") ||
+                        cellValue.includes("세특")) {
                         observationColIndex = j;
                     }
                 }
@@ -109,22 +109,20 @@ export default function BehaviorPage() {
             const newStudents = [];
             let idCounter = 1;
 
-            if (nameColIndex !== -1) {
-                console.log(`[엑셀 파싱] nameColIndex: ${nameColIndex} observationColIndex: ${observationColIndex} headerRowIndex: ${headerRowIndex}`);
+            console.log("[엑셀 파싱] nameColIndex:", nameColIndex, "observationColIndex:", observationColIndex, "headerRowIndex:", headerRowIndex);
 
+            if (nameColIndex !== -1) {
                 for (let i = headerRowIndex + 1; i < data.length; i++) {
                     const row = data[i];
                     const name = row[nameColIndex];
                     const observation = observationColIndex !== -1 ? row[observationColIndex] : "";
+                    console.log("[엑셀 파싱] 학생:", name, "관찰결과:", observation);
 
                     if (name && typeof name === 'string' && name.trim() !== "") {
-                        const observationText = observation ? String(observation).trim() : "";
-                        console.log(`[엑셀 파싱] 학생: ${name.trim()} 관찰결과: ${observationText}`);
-
                         newStudents.push({
                             id: idCounter++,
                             name: name.trim(),
-                            observation: observationText,
+                            observation: observation ? String(observation).trim() : "",
                             result: "",
                             status: "idle"
                         });
@@ -169,90 +167,8 @@ export default function BehaviorPage() {
         setStudentCount(prev => prev - 1);
     };
 
-    // AI 출력에서 메타 정보(글자수, 분석 내용 등) 제거
-    const cleanMetaInfo = (text) => {
-        if (!text) return text;
 
-        // 괄호 안의 메타 정보 제거: (자세한 내용 포함, 330자), (약 500자), (글자수: 330) 등
-        let cleaned = text.replace(/\s*\([^)]*\d+자[^)]*\)/g, '');
-        cleaned = cleaned.replace(/\s*\([^)]*글자[^)]*\)/g, '');
-        cleaned = cleaned.replace(/\s*\([^)]*자세한[^)]*\)/g, '');
-        cleaned = cleaned.replace(/\s*\([^)]*내용\s*포함[^)]*\)/g, '');
-
-        // 끝부분의 메타 정보 제거: "--- 330자" 또는 "[330자]" 등
-        cleaned = cleaned.replace(/\s*[-─]+\s*\d+자\s*$/g, '');
-        cleaned = cleaned.replace(/\s*\[\d+자\]\s*$/g, '');
-        cleaned = cleaned.replace(/\s*\d+자\s*$/g, '');
-
-        // 분석/검증 관련 문구 제거
-        cleaned = cleaned.replace(/\s*\[분석[^\]]*\]/g, '');
-        cleaned = cleaned.replace(/\s*\[검증[^\]]*\]/g, '');
-
-        return cleaned.trim();
-    };
-
-    // 글자수 초과시 마지막 완전한 문장까지만 잘라내는 후처리 함수
-    const truncateToCharLimit = (text, maxChars) => {
-        // 먼저 메타 정보 제거
-        let cleaned = cleanMetaInfo(text);
-
-        if (!cleaned || cleaned.length <= maxChars) return cleaned;
-
-        // 최대 글자수까지 자르기
-        let truncated = cleaned.substring(0, maxChars);
-
-        // 마지막 완전한 문장(마침표)까지 찾기
-        const lastPeriodIndex = truncated.lastIndexOf('.');
-        const lastCommaIndex = truncated.lastIndexOf(',');
-
-        if (lastPeriodIndex > truncated.length * 0.7) {
-            // 마지막 마침표가 70% 이후에 있으면 그 위치까지 자르기
-            truncated = truncated.substring(0, lastPeriodIndex + 1);
-        } else if (lastCommaIndex > truncated.length * 0.8) {
-            // 마침표가 너무 앞에 있으면 마지막 쉼표까지 자르고 마침표 추가
-            truncated = truncated.substring(0, lastCommaIndex) + '.';
-        } else {
-            // 둘 다 적절하지 않으면 마지막 완전한 단어까지 자르고 마침표 추가
-            const lastSpaceIndex = truncated.lastIndexOf(' ');
-            if (lastSpaceIndex > truncated.length * 0.8) {
-                truncated = truncated.substring(0, lastSpaceIndex);
-            }
-            // '~함', '~임', '~음' 등으로 끝나면 마침표 추가
-            if (!truncated.endsWith('.')) {
-                truncated = truncated.replace(/[,\s]+$/, '') + '.';
-            }
-        }
-
-        return truncated.trim();
-    };
-
-    // 클립보드 복사 함수
-    const copyToClipboard = async (studentId, text) => {
-        if (!text) return;
-
-        try {
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                await navigator.clipboard.writeText(text);
-            } else {
-                // Fallback for non-secure contexts
-                const textArea = document.createElement("textarea");
-                textArea.value = text;
-                document.body.appendChild(textArea);
-                textArea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textArea);
-            }
-
-            // 피드백 표시
-            updateStudent(studentId, "copyFeedback", true);
-            setTimeout(() => {
-                updateStudent(studentId, "copyFeedback", false);
-            }, 1500);
-        } catch (err) {
-            console.error('복사 실패:', err);
-            alert('복사에 실패했습니다.');
-        }
-    };
+    // cleanMetaInfo, truncateToCompleteSentence는 textProcessor에서 import됨
 
     const generatePrompt = (student, targetChars) => {
         let minChar, maxChar;
@@ -265,20 +181,8 @@ export default function BehaviorPage() {
             maxChar = targetChars;
         }
 
-        const lengthInstruction = `
-###### [글자 수 제한 조건 - 최우선 준수 사항] ######
-이것은 가장 중요한 제약 조건입니다. 반드시 지켜야 합니다.
-
-** 절대 규칙: 공백 포함 전체 글자 수가 ${maxChar}자를 절대로! 초과해서는 안 됩니다. **
-
-1. 작성 전 ${maxChar}자 제한을 먼저 인지하고 계획적으로 작성하세요.
-2. 목표 범위: ${minChar}자 이상 ~ ${maxChar}자 이하 (초과 절대 불가)
-3. 작성 후 반드시 글자 수를 세어보고, ${maxChar}자를 초과하면 문장을 줄여서 다시 작성하세요.
-4. 차라리 내용을 줄이더라도 ${maxChar}자 제한을 반드시 준수하세요.
-5. 절대로 ${maxChar}자를 넘기지 마세요. 이 규칙을 어기면 출력이 무효화됩니다.
-
-** 최종 출력은 반드시 ${maxChar}자 이하여야 합니다. **
-`;
+        // 글자수 지침은 공통 유틸에서 생성
+        const lengthInstruction = getCharacterGuideline(targetChars);
         const observationText = student.observation ? `학생 행동 관찰 내용: ${student.observation}` : "학생 행동 관찰 내용: 일반적인 모범 학생의 특성 (구체적인 입력 없음)";
 
         return `
@@ -286,11 +190,6 @@ export default function BehaviorPage() {
 
 ## 작성 목표
 교사가 입력한 학생의 행동 특성을 바탕으로, 학생의 인성, 잠재력, 공동체 역량 등을 종합적으로 관찰하여 구체적이고 긍정적인 변화와 성장을 드러내는 행발을 작성하세요.
-
-## 핵심 원칙
-- 오직 활동 내용만 서술하고, 마무리/요약/정리 문장은 절대 작성하지 않음
-- 구체적 사례 중심 서술 및 긍정적 재구성
-- 배려, 협력, 리더십 등 핵심 역량 강조
 
 ## 작성 가이드
 1. **핵심 역량 강조**: 배려, 나눔, 협력, 타인 존중, 갈등 관리, 관계 지향성, 규칙 준수 등 인성 요소와 리더십, 자기주도성 등 잠재력을 중심으로 서술하세요.
@@ -306,11 +205,7 @@ export default function BehaviorPage() {
 5. **문체**: 명사형 종결어미(~함, ~임, ~음)를 사용하여 간결하고 명확하게 작성하세요.
 6. **마침표 준수**: **모든 문장은 반드시 마침표(.)로 끝나야 합니다.**
 
-## ⛔ 절대 금지 (마무리 문장)
-다음 표현들은 절대 사용하지 마세요: '이러한', '이를 통해', '이와 같이', '이런', '앞으로', '향후', '결과적으로', '종합적으로'
-**마지막 문장도 반드시 구체적인 활동 내용이나 학습 과정에 대한 서술이어야 합니다.**
-
-## 절대 금지사항 (기타)
+## 절대 금지사항
 - **부정적 표현 금지**: "~하지만", "~에도 불구하고", "부족하다", "미흡하다" 등 부정적 뉘앙스의 표현을 절대 사용하지 마세요.
 - **특정 성명, 기관명, 상호명 등은 기재 불가**
 - **"학생은", "OO는", "위 학생은" 등 주어를 절대 사용하지 마세요.**
@@ -353,11 +248,11 @@ ${lengthInstruction}
 
             if (data.error) throw new Error(data.error);
 
-            // 글자수 초과시 후처리: 설정된 글자수 이하로 자르기
+            // 글자수 초과시 후처리: 완전한 문장으로 자르기
             let result = data.result;
-            if (result && result.length > targetChars) {
-                console.log(`[글자수 초과] 원본: ${result.length}자 → ${targetChars}자로 자르기`);
-                result = truncateToCharLimit(result, targetChars);
+            result = truncateToCompleteSentence(result, targetChars);
+            if (data.result && result.length < data.result.length) {
+                console.log(`[글자수 조정] 원본: ${data.result.length}자 → ${result.length}자 (완전한 문장으로)`);
             }
 
             updateStudent(student.id, "result", result);
@@ -657,23 +552,6 @@ ${lengthInstruction}
                                             className="form-textarea textarea-auto w-full"
                                         />
 
-                                        {/* Copy Button */}
-                                        {student.result && (
-                                            <button
-                                                onClick={() => copyToClipboard(student.id, student.result)}
-                                                className="absolute bottom-3 right-3 px-3 py-1.5 rounded-md text-xs font-bold transition-all"
-                                                style={{
-                                                    backgroundColor: student.copyFeedback ? '#10b981' : '#f3f4f6',
-                                                    color: student.copyFeedback ? 'white' : '#4b5563',
-                                                    border: '1px solid',
-                                                    borderColor: student.copyFeedback ? '#10b981' : '#d1d5db',
-                                                    zIndex: 10
-                                                }}
-                                            >
-                                                {student.copyFeedback ? '복사됨!' : '복사'}
-                                            </button>
-                                        )}
-
                                         {/* Loading Overlay */}
                                         {student.status === "loading" && (
                                             <div className="loading-overlay">
@@ -682,6 +560,54 @@ ${lengthInstruction}
                                             </div>
                                         )}
                                     </div>
+
+                                    {/* 복사 버튼 */}
+                                    {student.result && (
+                                        <div className="flex justify-end mt-2">
+                                            <button
+                                                onClick={() => {
+                                                    // Clipboard API fallback for HTTP
+                                                    const copyText = (text) => {
+                                                        if (navigator.clipboard && window.isSecureContext) {
+                                                            navigator.clipboard.writeText(text);
+                                                        } else {
+                                                            const textarea = document.createElement('textarea');
+                                                            textarea.value = text;
+                                                            textarea.style.position = 'fixed';
+                                                            textarea.style.opacity = '0';
+                                                            document.body.appendChild(textarea);
+                                                            textarea.select();
+                                                            document.execCommand('copy');
+                                                            document.body.removeChild(textarea);
+                                                        }
+                                                    };
+                                                    copyText(student.result);
+                                                    const btn = document.getElementById(`copy-btn-behavior-${student.id}`);
+                                                    if (btn) {
+                                                        btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg><span>복사됨!</span>';
+                                                        setTimeout(() => {
+                                                            btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg><span>복사</span>';
+                                                        }, 1500);
+                                                    }
+                                                }}
+                                                id={`copy-btn-behavior-${student.id}`}
+                                                className="btn-secondary"
+                                                style={{
+                                                    padding: '4px 10px',
+                                                    fontSize: '0.75rem',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '4px',
+                                                    color: '#6b7280',
+                                                    borderColor: '#e5e7eb'
+                                                }}
+                                                title="클립보드에 복사"
+                                            >
+                                                <Copy size={14} />
+                                                <span>복사</span>
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>

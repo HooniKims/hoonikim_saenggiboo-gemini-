@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import { Trash2, Download, Wand2, Users, UserX } from "lucide-react";
 import * as XLSX from "xlsx";
 import { writeExcel } from "../../utils/excel";
+import { cleanMetaInfo, truncateToCompleteSentence, getCharacterGuideline, getPromptCharLimit } from "../../utils/textProcessor";
 
 export default function LetterPage() {
     // State
@@ -142,62 +143,8 @@ export default function LetterPage() {
         setStudentCount(prev => prev - 1);
     };
 
-    // AI 출력에서 메타 정보(글자수, 분석 내용 등) 제거
-    const cleanMetaInfo = (text) => {
-        if (!text) return text;
 
-        // 괄호 안의 메타 정보 제거: (자세한 내용 포함, 330자), (약 500자), (글자수: 330) 등
-        let cleaned = text.replace(/\s*\([^)]*\d+자[^)]*\)/g, '');
-        cleaned = cleaned.replace(/\s*\([^)]*글자[^)]*\)/g, '');
-        cleaned = cleaned.replace(/\s*\([^)]*자세한[^)]*\)/g, '');
-        cleaned = cleaned.replace(/\s*\([^)]*내용\s*포함[^)]*\)/g, '');
-
-        // 끝부분의 메타 정보 제거: "--- 330자" 또는 "[330자]" 등
-        cleaned = cleaned.replace(/\s*[-─]+\s*\d+자\s*$/g, '');
-        cleaned = cleaned.replace(/\s*\[\d+자\]\s*$/g, '');
-        cleaned = cleaned.replace(/\s*\d+자\s*$/g, '');
-
-        // 분석/검증 관련 문구 제거
-        cleaned = cleaned.replace(/\s*\[분석[^\]]*\]/g, '');
-        cleaned = cleaned.replace(/\s*\[검증[^\]]*\]/g, '');
-
-        return cleaned.trim();
-    };
-
-    // 글자수 초과시 마지막 완전한 문장까지만 잘라내는 후처리 함수
-    const truncateToCharLimit = (text, maxChars) => {
-        // 먼저 메타 정보 제거
-        let cleaned = cleanMetaInfo(text);
-
-        if (!cleaned || cleaned.length <= maxChars) return cleaned;
-
-        // 최대 글자수까지 자르기
-        let truncated = cleaned.substring(0, maxChars);
-
-        // 마지막 완전한 문장(마침표)까지 찾기
-        const lastPeriodIndex = truncated.lastIndexOf('.');
-        const lastCommaIndex = truncated.lastIndexOf(',');
-
-        if (lastPeriodIndex > truncated.length * 0.7) {
-            // 마지막 마침표가 70% 이후에 있으면 그 위치까지 자르기
-            truncated = truncated.substring(0, lastPeriodIndex + 1);
-        } else if (lastCommaIndex > truncated.length * 0.8) {
-            // 마침표가 너무 앞에 있으면 마지막 쉼표까지 자르고 마침표 추가
-            truncated = truncated.substring(0, lastCommaIndex) + '.';
-        } else {
-            // 둘 다 적절하지 않으면 마지막 완전한 단어까지 자르고 마침표 추가
-            const lastSpaceIndex = truncated.lastIndexOf(' ');
-            if (lastSpaceIndex > truncated.length * 0.8) {
-                truncated = truncated.substring(0, lastSpaceIndex);
-            }
-            // '~함', '~임', '~음' 등으로 끝나면 마침표 추가
-            if (!truncated.endsWith('.')) {
-                truncated = truncated.replace(/[,\s]+$/, '') + '.';
-            }
-        }
-
-        return truncated.trim();
-    };
+    // cleanMetaInfo, truncateToCompleteSentence는 textProcessor에서 import됨
 
     const generatePrompt = (targetChars) => {
         let minChar, maxChar;
@@ -210,20 +157,8 @@ export default function LetterPage() {
             maxChar = targetChars;
         }
 
-        const lengthInstruction = `
-###### [글자 수 제한 조건 - 최우선 준수 사항] ######
-이것은 가장 중요한 제약 조건입니다. 반드시 지켜야 합니다.
-
-** 절대 규칙: 공백 포함 전체 글자 수가 ${maxChar}자를 절대로! 초과해서는 안 됩니다. **
-
-1. 작성 전 ${maxChar}자 제한을 먼저 인지하고 계획적으로 작성하세요.
-2. 목표 범위: ${minChar}자 이상 ~ ${maxChar}자 이하 (초과 절대 불가)
-3. 작성 후 반드시 글자 수를 세어보고, ${maxChar}자를 초과하면 문장을 줄여서 다시 작성하세요.
-4. 차라리 내용을 줄이더라도 ${maxChar}자 제한을 반드시 준수하세요.
-5. 절대로 ${maxChar}자를 넘기지 마세요. 이 규칙을 어기면 출력이 무효화됩니다.
-
-** 최종 출력은 반드시 ${maxChar}자 이하여야 합니다. **
-`;
+        // 글자수 지침은 공통 유틸에서 생성
+        const lengthInstruction = getCharacterGuideline(targetChars);
 
         const keywordContext = keywords ? `입력된 키워드: ${keywords}` : "입력된 키워드: 학업, 건강, 친구관계, 가족관계";
 
@@ -302,11 +237,11 @@ ${lengthInstruction}
 
             if (data.error) throw new Error(data.error);
 
-            // 글자수 초과시 후처리: 설정된 글자수 이하로 자르기
+            // 글자수 초과시 후처리: 완전한 문장으로 자르기
             let result = data.result;
-            if (result && result.length > targetChars) {
-                console.log(`[글자수 초과] 원본: ${result.length}자 → ${targetChars}자로 자르기`);
-                result = truncateToCharLimit(result, targetChars);
+            result = truncateToCompleteSentence(result, targetChars);
+            if (data.result && result.length < data.result.length) {
+                console.log(`[글자수 조정] 원본: ${data.result.length}자 → ${result.length}자 (완전한 문장으로)`);
             }
 
             updateStudent(student.id, "result", result);

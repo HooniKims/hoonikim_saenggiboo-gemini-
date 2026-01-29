@@ -15,8 +15,8 @@ export async function POST(req) {
             );
         }
 
-        // Gemini API endpoint with model gemini-2.5-flash
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${finalApiKey}`;
+        // Gemini API endpoint with model gemini-2.5-flash-lite
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${finalApiKey}`;
 
         // Prepare the request payload for Gemini API
         const payload = {
