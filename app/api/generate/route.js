@@ -1,5 +1,5 @@
-// Edge Runtime: Netlify 서버리스 10초 타임아웃 회피
-export const runtime = 'edge';
+// Node.js 런타임: 스트리밍 안정 + Edge 호환 문제 회피
+export const runtime = "nodejs";
 
 export async function POST(req) {
     try {
@@ -22,82 +22,52 @@ export async function POST(req) {
             systemMessage += `\n\n【🚨 최우선 지침】\n${additionalInstructions}`;
         }
 
-        // Ollama API 직접 호출 (OpenAI 호환 /v1/chat/completions)
+        // Ollama 네이티브 /api/chat 엔드포인트 사용 (messages 지원)
+        const upstream = `${ollamaUrl}/api/chat`;
+
         const headers = {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
         };
         if (ollamaKey) {
-            headers['x-api-key'] = ollamaKey;
+            headers["X-API-Key"] = ollamaKey;
         }
 
-        const apiResponse = await fetch(`${ollamaUrl}/v1/chat/completions`, {
-            method: 'POST',
+        const r = await fetch(upstream, {
+            method: "POST",
             headers,
             body: JSON.stringify({
-                model: 'llama3.1:8b',
+                model: "llama3.1:8b",
                 messages: [
-                    { role: 'system', content: systemMessage },
-                    { role: 'user', content: prompt },
+                    { role: "system", content: systemMessage },
+                    { role: "user", content: prompt },
                 ],
-                temperature: 0.7,
                 stream: true,
             }),
         });
 
-        if (!apiResponse.ok) {
-            const errorText = await apiResponse.text();
+        // 에러 처리
+        if (!r.ok) {
+            const text = await r.text().catch(() => "");
             return new Response(
-                JSON.stringify({ error: `Ollama API 오류 (${apiResponse.status}): ${errorText}` }),
-                { status: 500, headers: { 'Content-Type': 'application/json' } }
+                JSON.stringify({ error: text || `Ollama API 오류: ${r.status}` }),
+                { status: r.status, headers: { 'Content-Type': 'application/json' } }
             );
         }
 
-        // SSE 스트림을 일반 텍스트 스트림으로 변환
-        const reader = apiResponse.body.getReader();
-        const decoder = new TextDecoder();
-        const encoder = new TextEncoder();
+        // ✅ 스트리밍 응답을 그대로 전달 (가장 효율적)
+        if (r.body) {
+            return new Response(r.body, {
+                status: 200,
+                headers: {
+                    "Content-Type": r.headers.get("content-type") || "application/json; charset=utf-8",
+                    "Cache-Control": "no-cache",
+                },
+            });
+        }
 
-        const stream = new ReadableStream({
-            async start(controller) {
-                try {
-                    while (true) {
-                        const { done, value } = await reader.read();
-                        if (done) break;
-
-                        const chunk = decoder.decode(value, { stream: true });
-                        const lines = chunk.split('\n');
-
-                        for (const line of lines) {
-                            const trimmed = line.trim();
-                            if (!trimmed || !trimmed.startsWith('data: ')) continue;
-
-                            const data = trimmed.slice(6);
-                            if (data === '[DONE]') continue;
-
-                            try {
-                                const parsed = JSON.parse(data);
-                                const content = parsed.choices?.[0]?.delta?.content || '';
-                                if (content) {
-                                    controller.enqueue(encoder.encode(content));
-                                }
-                            } catch {
-                                // JSON 파싱 실패 시 무시
-                            }
-                        }
-                    }
-                    controller.close();
-                } catch (err) {
-                    controller.error(err);
-                }
-            }
-        });
-
-        return new Response(stream, {
-            headers: {
-                'Content-Type': 'text/plain; charset=utf-8',
-                'Cache-Control': 'no-cache',
-            },
-        });
+        // 비스트리밍 fallback
+        const data = await r.json();
+        return Response.json(data);
 
     } catch (error) {
         console.error("API Error:", error);
