@@ -89,46 +89,53 @@ location / {
 브라우저에서 Ollama API를 **직접** 호출합니다. 서버리스 함수를 거치지 않습니다.
 
 ```javascript
+import { AVAILABLE_MODELS, DEFAULT_MODEL } from "./streamFetch"; // 실제 경로에 맞게
+
 const OLLAMA_API_URL = "https://api.alluser.site";
 const OLLAMA_API_KEY = "gudgns0411skaluv2018tjdbs130429";
 
-export async function fetchStream(bodyData) {
-    const { prompt, additionalInstructions } = bodyData;
+export const AVAILABLE_MODELS = [
+    { id: "qwen3:8b", name: "Qwen 3 8B (추천)", description: "균형 잡힌 성능" },
+    { id: "gemma3:12b-it-q8_0", name: "Gemma 3 12B Q8", description: "최고 품질 (13GB)" },
+    // ... 총 6개 모델 지원
+];
 
-    let systemMessage = "선생님을 돕는 전문가로서 학생들의 학교생활기록부 작성을 도와줍니다.";
+export const DEFAULT_MODEL = AVAILABLE_MODELS[0].id;
+
+export async function fetchStream(bodyData) {
+    const { prompt, additionalInstructions, model } = bodyData;
+
+    let systemMessage = `학교생활기록부 작성 전문가. 반드시 지킬 규칙:\n1. 명사형 종결어미 사용...`;
     if (additionalInstructions) {
-        systemMessage += `\n\n【🚨 최우선 지침】\n${additionalInstructions}`;
+        systemMessage += `\n\n사용자 추가 규칙:\n${additionalInstructions}`;
     }
 
+    // 추가 지침 Sandwich 기법 적용
+    let finalPrompt = prompt;
+    if (additionalInstructions) {
+        finalPrompt = `[최우선 규칙] ${additionalInstructions}\n\n` + prompt + `\n\n[다시 한 번 강조] ${additionalInstructions}`;
+    }
+
+    // Ollama API 호출
     const res = await fetch(`${OLLAMA_API_URL}/v1/chat/completions`, {
         method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "X-API-Key": OLLAMA_API_KEY,
-        },
+        headers: { "Content-Type": "application/json", "X-API-Key": OLLAMA_API_KEY },
         body: JSON.stringify({
-            model: "gemma3:12b-it-q4_K_M",
+            model: model || DEFAULT_MODEL, // 동적 모델 선택
             messages: [
                 { role: "system", content: systemMessage },
-                { role: "user", content: prompt },
+                { role: "user", content: finalPrompt },
             ],
             temperature: 0.7,
             stream: false,
         }),
     });
 
-    if (!res.ok) {
-        let errorMessage = `서버 오류 (${res.status})`;
-        try {
-            const errorData = await res.json();
-            errorMessage = errorData.error || errorMessage;
-        } catch {}
-        throw new Error(errorMessage);
-    }
-
     const data = await res.json();
-    const content = data.choices?.[0]?.message?.content || "";
-    if (!content.trim()) throw new Error("AI 응답이 비어있습니다.");
+    let content = data.choices?.[0]?.message?.content || "";
+
+    // 완전한 문장 검증 및 자동 재시도 로직 포함됨 (코드 생략)
+    
     return content;
 }
 ```
