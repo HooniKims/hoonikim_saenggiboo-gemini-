@@ -1,6 +1,3 @@
-// Node.js 런타임: 스트리밍 안정 + Edge 호환 문제 회피
-export const runtime = "nodejs";
-
 export async function POST(req) {
     try {
         const body = await req.json();
@@ -9,10 +6,13 @@ export async function POST(req) {
         const ollamaUrl = process.env.OLLAMA_API_URL;
         const ollamaKey = process.env.OLLAMA_API_KEY;
 
+        console.log("[DEBUG] OLLAMA_API_URL:", ollamaUrl);
+        console.log("[DEBUG] OLLAMA_API_KEY exists:", !!ollamaKey);
+
         if (!ollamaUrl) {
-            return new Response(
-                JSON.stringify({ error: "OLLAMA_API_URL 환경 변수가 설정되지 않았습니다." }),
-                { status: 500, headers: { 'Content-Type': 'application/json' } }
+            return Response.json(
+                { error: "OLLAMA_API_URL 환경 변수가 설정되지 않았습니다." },
+                { status: 500 }
             );
         }
 
@@ -22,8 +22,9 @@ export async function POST(req) {
             systemMessage += `\n\n【🚨 최우선 지침】\n${additionalInstructions}`;
         }
 
-        // Ollama 네이티브 /api/chat 엔드포인트 사용 (messages 지원)
-        const upstream = `${ollamaUrl}/api/chat`;
+        // 단순 비스트리밍 요청 (디버깅용)
+        const apiUrl = `${ollamaUrl}/v1/chat/completions`;
+        console.log("[DEBUG] Calling:", apiUrl);
 
         const headers = {
             "Content-Type": "application/json",
@@ -32,7 +33,7 @@ export async function POST(req) {
             headers["X-API-Key"] = ollamaKey;
         }
 
-        const r = await fetch(upstream, {
+        const apiResponse = await fetch(apiUrl, {
             method: "POST",
             headers,
             body: JSON.stringify({
@@ -41,39 +42,34 @@ export async function POST(req) {
                     { role: "system", content: systemMessage },
                     { role: "user", content: prompt },
                 ],
-                stream: true,
+                temperature: 0.7,
+                stream: false,
             }),
         });
 
-        // 에러 처리
-        if (!r.ok) {
-            const text = await r.text().catch(() => "");
-            return new Response(
-                JSON.stringify({ error: text || `Ollama API 오류: ${r.status}` }),
-                { status: r.status, headers: { 'Content-Type': 'application/json' } }
+        console.log("[DEBUG] Response status:", apiResponse.status);
+
+        if (!apiResponse.ok) {
+            const errorText = await apiResponse.text();
+            console.error("[DEBUG] API Error:", errorText);
+            return Response.json(
+                { error: `Ollama API 오류 (${apiResponse.status}): ${errorText}` },
+                { status: 500 }
             );
         }
 
-        // ✅ 스트리밍 응답을 그대로 전달 (가장 효율적)
-        if (r.body) {
-            return new Response(r.body, {
-                status: 200,
-                headers: {
-                    "Content-Type": r.headers.get("content-type") || "application/json; charset=utf-8",
-                    "Cache-Control": "no-cache",
-                },
-            });
-        }
+        const data = await apiResponse.json();
+        console.log("[DEBUG] Response received, choices:", data.choices?.length);
 
-        // 비스트리밍 fallback
-        const data = await r.json();
-        return Response.json(data);
+        const content = data.choices?.[0]?.message?.content || "";
+
+        return Response.json({ result: content });
 
     } catch (error) {
-        console.error("API Error:", error);
-        return new Response(
-            JSON.stringify({ error: error.message || "생성 실패" }),
-            { status: 500, headers: { 'Content-Type': 'application/json' } }
+        console.error("[DEBUG] Catch error:", error.message, error.cause);
+        return Response.json(
+            { error: `서버 오류: ${error.message}` },
+            { status: 500 }
         );
     }
 }
