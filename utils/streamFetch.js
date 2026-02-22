@@ -1,25 +1,56 @@
+const OLLAMA_API_URL = "https://api.alluser.site";
+const OLLAMA_API_KEY = "gudgns0411skaluv2018tjdbs130429";
+
 /**
- * /api/generate를 호출하고 결과를 반환합니다.
+ * 브라우저에서 직접 Ollama API를 호출합니다.
+ * Netlify 서버가 한국 서버에 접근할 수 없으므로 브라우저에서 직접 호출합니다.
  * 
- * @param {Object} bodyData - POST body ({ prompt, additionalInstructions? })
+ * @param {Object} bodyData - { prompt, additionalInstructions? }
  * @returns {Promise<string>} - 생성된 전체 텍스트
  */
 export async function fetchStream(bodyData) {
-    const res = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(bodyData),
-    });
+    const { prompt, additionalInstructions } = bodyData;
 
-    const data = await res.json();
-
-    if (!res.ok || data.error) {
-        throw new Error(data.error || `서버 오류 (${res.status})`);
+    // 메시지 구성
+    let systemMessage = "선생님을 돕는 전문가로서 학생들의 학교생활기록부 작성을 도와줍니다.";
+    if (additionalInstructions) {
+        systemMessage += `\n\n【🚨 최우선 지침】\n${additionalInstructions}`;
     }
 
-    if (!data.result || !data.result.trim()) {
+    const res = await fetch(`${OLLAMA_API_URL}/v1/chat/completions`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-API-Key": OLLAMA_API_KEY,
+        },
+        body: JSON.stringify({
+            model: "llama3.1:8b",
+            messages: [
+                { role: "system", content: systemMessage },
+                { role: "user", content: prompt },
+            ],
+            temperature: 0.7,
+            stream: false,
+        }),
+    });
+
+    if (!res.ok) {
+        let errorMessage = `서버 오류 (${res.status})`;
+        try {
+            const errorData = await res.json();
+            errorMessage = errorData.error || errorMessage;
+        } catch {
+            // 무시
+        }
+        throw new Error(errorMessage);
+    }
+
+    const data = await res.json();
+    const content = data.choices?.[0]?.message?.content || "";
+
+    if (!content.trim()) {
         throw new Error("AI 응답이 비어있습니다.");
     }
 
-    return data.result;
+    return content;
 }
