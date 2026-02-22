@@ -24,7 +24,7 @@ export async function fetchStream(bodyData) {
             "X-API-Key": OLLAMA_API_KEY,
         },
         body: JSON.stringify({
-            model: "llama3.1:8b",
+            model: "gemma3:12b-it-q4_K_M",
             messages: [
                 { role: "system", content: systemMessage },
                 { role: "user", content: prompt },
