@@ -1,4 +1,3 @@
-import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
 export async function POST(req) {
@@ -18,7 +17,6 @@ export async function POST(req) {
             clientSettings = {
                 apiKey: ollamaKey || 'ollama',
                 baseURL: `${ollamaUrl}/v1`,
-                // 특정 프록시는 Authorization 대신 x-api-key를 요구할 수 있음
                 defaultHeaders: ollamaKey ? {
                     'x-api-key': ollamaKey
                 } : {}
@@ -41,7 +39,7 @@ export async function POST(req) {
             systemMessage += `\n\n【🚨 최우선 지침】\n${additionalInstructions}`;
         }
 
-        // 3. 생성 요청
+        // 3. 스트리밍 생성 요청
         const completion = await openai.chat.completions.create({
             model: model,
             messages: [
@@ -49,16 +47,43 @@ export async function POST(req) {
                 { role: "user", content: prompt },
             ],
             temperature: 0.7,
+            stream: true,
         });
 
-        const content = completion.choices[0].message.content;
-        return NextResponse.json({ result: content });
+        // 4. ReadableStream으로 스트리밍 응답
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream({
+            async start(controller) {
+                try {
+                    for await (const chunk of completion) {
+                        const text = chunk.choices[0]?.delta?.content || '';
+                        if (text) {
+                            controller.enqueue(encoder.encode(text));
+                        }
+                    }
+                    controller.close();
+                } catch (err) {
+                    controller.error(err);
+                }
+            }
+        });
+
+        return new Response(stream, {
+            headers: {
+                'Content-Type': 'text/plain; charset=utf-8',
+                'Cache-Control': 'no-cache',
+                'Transfer-Encoding': 'chunked',
+            },
+        });
 
     } catch (error) {
         console.error("API Error:", error);
-        return NextResponse.json(
-            { error: error.message || "생성 실패" },
-            { status: 500 }
+        return new Response(
+            JSON.stringify({ error: error.message || "생성 실패" }),
+            {
+                status: 500,
+                headers: { 'Content-Type': 'application/json' },
+            }
         );
     }
 }

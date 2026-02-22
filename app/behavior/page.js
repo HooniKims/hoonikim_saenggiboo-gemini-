@@ -5,6 +5,7 @@ import { Trash2, Download, Wand2, Users, UserX, Copy, Check } from "lucide-react
 import * as XLSX from "xlsx";
 import { writeExcel } from "../../utils/excel";
 import { cleanMetaInfo, truncateToCompleteSentence, getCharacterGuideline, getPromptCharLimit } from "../../utils/textProcessor";
+import { fetchStream } from "../../utils/streamFetch";
 
 export default function BehaviorPage() {
     // State
@@ -240,20 +241,13 @@ ${lengthInstruction}
 
         try {
             updateStudent(student.id, "status", "loading");
-            const res = await fetch("/api/generate", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ prompt })
-            });
-            const data = await res.json();
-
-            if (data.error) throw new Error(data.error);
+            const rawResult = await fetchStream({ prompt });
 
             // 글자수 초과시 후처리: 완전한 문장으로 자르기
-            let result = data.result;
+            let result = rawResult;
             result = truncateToCompleteSentence(result, targetChars);
-            if (data.result && result.length < data.result.length) {
-                console.log(`[글자수 조정] 원본: ${data.result.length}자 → ${result.length}자 (완전한 문장으로)`);
+            if (rawResult && result.length < rawResult.length) {
+                console.log(`[글자수 조정] 원본: ${rawResult.length}자 → ${result.length}자 (완전한 문장으로)`);
             }
 
             updateStudent(student.id, "result", result);
