@@ -1,5 +1,8 @@
 import OpenAI from 'openai';
 
+// Edge Runtime: Netlify 서버리스 10초 타임아웃 회피
+export const runtime = 'edge';
+
 export async function POST(req) {
     try {
         const body = await req.json();
