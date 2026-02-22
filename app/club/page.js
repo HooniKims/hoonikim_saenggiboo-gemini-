@@ -5,7 +5,7 @@ import { Plus, Trash2, Upload, Download, Wand2, FileSpreadsheet, Users, UserX, C
 import * as XLSX from "xlsx";
 import { writeExcel } from "../../utils/excel";
 import { cleanMetaInfo, truncateToCompleteSentence, getCharacterGuideline, getPromptCharLimit } from "../../utils/textProcessor";
-import { fetchStream } from "../../utils/streamFetch";
+import { fetchStream, AVAILABLE_MODELS, DEFAULT_MODEL } from "../../utils/streamFetch";
 
 export default function ClubPage() {
     // State
@@ -23,6 +23,7 @@ export default function ClubPage() {
     const [textLength, setTextLength] = useState("1500");
     const [manualLength, setManualLength] = useState("");
     const [isGenerating, setIsGenerating] = useState(false);
+    const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL);
     const [copiedId, setCopiedId] = useState(null);
     const fileInputRef = useRef(null);
     const activityInputRefs = useRef([]);
@@ -350,7 +351,7 @@ ${additionalInstructions.trim() ? `
 
         try {
             updateStudent(student.id, "status", "loading");
-            const rawResult = await fetchStream({ prompt, additionalInstructions });
+            const rawResult = await fetchStream({ prompt, additionalInstructions, model: selectedModel });
 
             // 글자수 초과시 후처리: 완전한 문장으로 자르기
             let result = rawResult;
@@ -628,11 +629,23 @@ ${additionalInstructions.trim() ? `
                         </div>
 
                         <div className="flex gap-4">
+                            <div className="form-group" style={{ marginBottom: 0, flex: 1 }}>
+                                <label className="form-label">AI 모델</label>
+                                <select
+                                    value={selectedModel}
+                                    onChange={(e) => setSelectedModel(e.target.value)}
+                                    className="form-select"
+                                >
+                                    {AVAILABLE_MODELS.map((m) => (
+                                        <option key={m.id} value={m.id}>{m.name}</option>
+                                    ))}
+                                </select>
+                            </div>
                             <button
                                 onClick={generateAll}
                                 disabled={isGenerating}
-                                className="btn-primary flex-1"
-                                style={{ padding: '12px', fontSize: '1.1rem' }}
+                                className="btn-primary"
+                                style={{ padding: '12px 24px', fontSize: '1.1rem', alignSelf: 'flex-end' }}
                             >
                                 {isGenerating ? (
                                     <>
@@ -641,16 +654,16 @@ ${additionalInstructions.trim() ? `
                                     </>
                                 ) : (
                                     <>
-                                        <Wand2 size={20} /> 전체 학생 AI 생성
+                                        <Wand2 size={20} /> AI 생성
                                     </>
                                 )}
                             </button>
                             <button
                                 onClick={downloadExcel}
                                 className="btn-secondary"
-                                style={{ padding: '0 24px', display: 'flex', alignItems: 'center', gap: '8px' }}
+                                style={{ padding: '0 24px', display: 'flex', alignItems: 'center', gap: '8px', alignSelf: 'flex-end' }}
                             >
-                                <Download size={20} /> 엑셀 다운로드
+                                <Download size={20} /> 엑셀
                             </button>
                         </div>
                     </div>

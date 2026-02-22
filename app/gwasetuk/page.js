@@ -5,7 +5,7 @@ import { Plus, Trash2, Upload, Download, Wand2, FileSpreadsheet, Users, UserX, C
 import * as XLSX from "xlsx";
 import { writeExcel } from "../../utils/excel";
 import { cleanMetaInfo, truncateToCompleteSentence, getCharacterGuideline, getPromptCharLimit } from "../../utils/textProcessor";
-import { fetchStream } from "../../utils/streamFetch";
+import { fetchStream, AVAILABLE_MODELS, DEFAULT_MODEL } from "../../utils/streamFetch";
 
 export default function GwasetukPage() {
     // State
@@ -22,6 +22,7 @@ export default function GwasetukPage() {
     const [textLength, setTextLength] = useState("1500"); // 1500, 1000, 600, manual
     const [manualLength, setManualLength] = useState("");
     const [isGenerating, setIsGenerating] = useState(false);
+    const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL);
     const [copiedId, setCopiedId] = useState(null);
     const fileInputRef = useRef(null);
     const activityInputRefs = useRef([]);
@@ -348,7 +349,7 @@ ${additionalInstructions.trim() ? `
 
         try {
             updateStudent(student.id, "status", "loading");
-            const rawResult = await fetchStream({ prompt, additionalInstructions });
+            const rawResult = await fetchStream({ prompt, additionalInstructions, model: selectedModel });
 
             // 글자수 초과시 후처리: 완전한 문장으로 자르기
             let result = rawResult;
@@ -620,13 +621,26 @@ ${additionalInstructions.trim() ? `
                                     type="number"
                                     value={manualLength}
                                     onChange={(e) => setManualLength(e.target.value)}
-                                    placeholder="글자수 입력"
+                                    placeholder="byte 단위 입력 (예: 800)"
                                     className="form-input mt-2"
                                 />
                             )}
                         </div>
 
-                        <div className="flex gap-4">
+                        <div className="form-group" style={{ marginBottom: 0 }}>
+                            <label className="form-label">AI 모델</label>
+                            <select
+                                value={selectedModel}
+                                onChange={(e) => setSelectedModel(e.target.value)}
+                                className="form-select"
+                            >
+                                {AVAILABLE_MODELS.map((m) => (
+                                    <option key={m.id} value={m.id}>{m.name}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="flex gap-2">
                             <button
                                 onClick={generateAll}
                                 disabled={isGenerating}
@@ -640,7 +654,7 @@ ${additionalInstructions.trim() ? `
                                     </>
                                 ) : (
                                     <>
-                                        <Wand2 size={20} /> 전체 학생 AI 생성
+                                        <Wand2 size={20} /> AI 생성
                                     </>
                                 )}
                             </button>
@@ -649,7 +663,7 @@ ${additionalInstructions.trim() ? `
                                 className="btn-secondary"
                                 style={{ padding: '0 24px', display: 'flex', alignItems: 'center', gap: '8px' }}
                             >
-                                <Download size={20} /> 엑셀 다운로드
+                                <Download size={20} /> 엑셀
                             </button>
                         </div>
                     </div>

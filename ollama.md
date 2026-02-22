@@ -107,7 +107,7 @@ export async function fetchStream(bodyData) {
             "X-API-Key": OLLAMA_API_KEY,
         },
         body: JSON.stringify({
-            model: "llama3.1:8b",
+            model: "gemma3:12b-it-q4_K_M",
             messages: [
                 { role: "system", content: systemMessage },
                 { role: "user", content: prompt },
@@ -160,7 +160,7 @@ const rawResult = await fetchStream({ prompt, additionalInstructions });
 ### 모델 예열 (필수)
 ```bash
 # 모델을 24시간 동안 메모리에 유지
-ollama run llama3.1:8b "안녕" --keepalive 24h
+ollama run gemma3:12b-it-q4_K_M "안녕" --keepalive 24h
 ```
 
 ### 모델 상태 확인
@@ -174,7 +174,7 @@ ollama list      # 설치된 모델 목록
 # crontab -e 로 추가 → 4분마다 ping하여 모델 유지
 */4 * * * * curl -s http://localhost:11434/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -d '{"model":"llama3.1:8b","messages":[{"role":"user","content":"ping"}]}' \
+  -d '{"model":"gemma3:12b-it-q4_K_M","messages":[{"role":"user","content":"ping"}]}' \
   > /dev/null 2>&1
 ```
 
