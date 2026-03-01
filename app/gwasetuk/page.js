@@ -5,7 +5,7 @@ import { Plus, Trash2, Upload, Download, Wand2, FileSpreadsheet, Users, UserX, C
 import * as XLSX from "xlsx";
 import { writeExcel } from "../../utils/excel";
 import { cleanMetaInfo, truncateToCompleteSentence, getCharacterGuideline, getPromptCharLimit } from "../../utils/textProcessor";
-import { fetchStream, AVAILABLE_MODELS, DEFAULT_MODEL } from "../../utils/streamFetch";
+import { fetchStream, AVAILABLE_MODELS, DEFAULT_MODEL, isLightweightModel } from "../../utils/streamFetch";
 
 export default function GwasetukPage() {
     // State
@@ -193,27 +193,24 @@ export default function GwasetukPage() {
 
     // cleanMetaInfo, truncateToCompleteSentence는 textProcessor에서 import됨
 
-    const generatePrompt = (student, selectedActivities, targetChars, individualActivity = "") => {
+    const generatePrompt = (student, selectedActivities, targetChars, individualActivity = "", model = "") => {
         const gradePrompts = {
-            A: `// A등급 프롬프트\n등급: A (탁월함)\n이 학생은 학업 역량과 자기주도성이 매우 뛰어난 학생입니다.\n활동의 깊이와 수준이 높으며, 심화된 탐구와 융합적 사고가 잘 드러나도록 작성하세요.`,
-            B: `// B등급 프롬프트\n등급: B (우수함)\n이 학생은 주어진 과제를 성실히 수행하고 우수한 학업 역량을 보여주는 학생입니다.\nA등급보다는 최상급 표현(탁월함, 매우 뛰어남 등)을 줄이고, 과제를 잘 완수하고 성실히 참여했다는 점을 중심으로 작성하세요.`,
-            C: `// C등급 프롬프트\n등급: C (노력요함/발전가능성)\n학생의 활동 중 잘한 점과 다소 아쉬운 점을 균형 있게 서술하세요.\n참여도나 흥미를 보인 부분은 칭찬하고, 부족한 부분은 구체적인 조언이나 향후 노력 방향을 제시하는 방식으로 작성하세요.\n단순히 부족함을 지적하기보다, 긍정적인 변화 가능성을 열어두는 어조를 유지하세요.`
+            A: `등급: A (탁월함)\n활동의 깊이와 수준이 높으며, 심화된 탐구와 융합적 사고가 잘 드러나도록 작성하세요.`,
+            B: `등급: B (우수함)\n과제를 잘 완수하고 성실히 참여했다는 점을 중심으로 작성하세요.`,
+            C: `등급: C (노력요함/발전가능성)\n잘한 점과 아쉬운 점을 균형 있게 서술하고, 긍정적인 변화 가능성을 열어두세요.`
         };
 
         let minChar, maxChar;
 
         if (targetChars === 200) {
-            // 600byte (approx 200 chars) specific logic
             if (student.grade === 'A') { minChar = 190; maxChar = 200; }
             else if (student.grade === 'B') { minChar = 170; maxChar = 189; }
             else { minChar = 150; maxChar = 169; }
         } else if (targetChars === 500) {
-            // 1500byte (approx 500 chars) specific logic
             if (student.grade === 'A') { minChar = 480; maxChar = 500; }
             else if (student.grade === 'B') { minChar = 430; maxChar = 479; }
             else { minChar = 350; maxChar = 429; }
         } else {
-            // Dynamic scaling for other lengths
             if (student.grade === 'A') {
                 minChar = Math.floor(targetChars * 0.95);
                 maxChar = targetChars;
@@ -226,7 +223,6 @@ export default function GwasetukPage() {
             }
         }
 
-        // 글자수 지침은 공통 유틸에서 생성
         const lengthInstruction = getCharacterGuideline(targetChars);
 
         const schoolLevelMap = {
@@ -235,33 +231,75 @@ export default function GwasetukPage() {
             high: "고등학생"
         };
         const targetLevel = schoolLevelMap[schoolLevel] || "중학생";
-        const subjectContext = subjectName ? `과목/프로그램명: ${subjectName}` : "과목/프로그램명: 미지정 (일반적인 교과 또는 창체 활동으로 간주)";
+        // 과목명은 시스템 참고용으로만 전달 (출력에 절대 포함 금지)
+        const subjectContext = subjectName ? `[시스템 참고 - 출력에 절대 포함 금지] 과목: ${subjectName}` : "";
 
-        const activitiesText = selectedActivities.map(a => `- ${a}`).join("\n");
+        const totalActivities = selectedActivities.length;
+        const activitiesText = selectedActivities.map((a, i) => `- 활동${i + 1}: ${a}`).join("\n");
 
-        // 학생별 개별 활동 내용이 있으면 추가
+        // 활동별 글자수 할당량 계산 (경량 모델용)
+        const charsPerActivity = totalActivities > 0 ? Math.floor(targetChars / totalActivities) : targetChars;
+        const activityAllocation = selectedActivities.map((a, i) =>
+            `활동${i + 1}("${a.substring(0, 15)}${a.length > 15 ? '...' : ''}"): 약 ${charsPerActivity}자`
+        ).join(", ");
+
         const individualActivityText = individualActivity.trim()
-            ? `\n\n[이 학생의 개별 활동 내용]\n${individualActivity}\n(위 개별 활동 내용과 공통 활동 내용을 연결하여 통합적으로 서술해 주세요. 예: '독서 감상문 작성' 활동과 '운수 좋은 날'이라는 개별 활동이 있으면, '운수 좋은 날'을 읽고 독서 감상문을 작성한 것으로 연결하여 서술)`
+            ? `\n\n[이 학생의 개별 활동 내용]\n${individualActivity}\n(위 개별 활동 내용과 공통 활동 내용을 연결하여 통합적으로 서술해 주세요.)`
             : "";
 
+        const isLightweight_ = isLightweightModel(model || selectedModel);
+
+        if (isLightweight_) {
+            // 경량 모델용: 간결하고 명확한 프롬프트
+            return `과세특 본문을 작성하세요.
+
+대상: ${targetLevel}
+${subjectContext}
+${gradePrompts[student.grade]}
+
+[활동 내용 - 총 ${totalActivities}개, 모두 반영 필수]
+${activitiesText}${individualActivityText}
+
+[활동별 할당량] ${activityAllocation}
+
+[절대금지]
+❌ 과목명 출력 금지 ("국어시간에", "수학 활동에서", "과학 수업" 등 전부 금지)
+❌ 과거형 금지 (~했음, ~였음, ~되었음, ~하였음, ~보였음 전부 금지)
+❌ 주어 금지 ("학생은", "이 학생은" 금지)
+❌ 요약/마무리 문장 금지
+
+[필수]
+✅ 현재형 종결어미만 사용: ~함, ~임, ~음, ~보임, ~드러남
+✅ 위 ${totalActivities}개 활동을 모두 다양한 표현으로 서술
+✅ 줄바꿈 없이 하나의 문단
+✅ 오직 본문만 출력
+
+${lengthInstruction}
+
+[좋은 예시]
+"토론 활동에서 찬반 입장을 논리적으로 정리하고 근거 자료를 조사하여 발표함. 발표 과정에서 상대 측 논거를 파악하고 재반박하는 능력을 보임."
+`;
+        }
+
         return `당신은 학교생활기록부 과세특(과목별 세부능력 및 특기사항)을 작성하는 교사입니다.
-아래 활동 내용과 등급을 바탕으로 과세특 본문을 작성하세요.
+아래 ${totalActivities}개의 활동 내용과 등급을 바탕으로 과세특 본문을 작성하세요.
+모든 활동을 빠짐없이 반영하되, 각 활동마다 다양한 표현과 구체적인 서술을 사용하세요.
 
 <입력 정보>
 대상: ${targetLevel}
 ${subjectContext}
 ${gradePrompts[student.grade]}
 
-<활동 내용>
+<활동 내용 - 총 ${totalActivities}개, 반드시 모두 반영>
 ${activitiesText}${individualActivityText}
 
 <작성 규칙>
 1. '학생은', '이 학생은' 등 주어를 사용하지 않고, 활동 내용부터 바로 서술
-2. 과목명이나 프로그램명은 서두에 직접 언급하지 않고, 바로 활동 서술로 시작
-3. 명사형 종결어미(~함, ~임, ~음)만 사용
+2. [절대금지] 과목명/프로그램명을 출력에 절대 포함하지 않음 (예: "국어시간에", "수학 수업에서", "과학 활동에서" 등 전부 금지). 바로 활동 서술로 시작
+3. [절대금지] 과거형 표현 금지 (~했음, ~였음, ~되었음, ~하였음, ~보였음). 반드시 현재형 명사 종결어미(~함, ~임, ~음, ~보임, ~드러남)만 사용
 4. ${targetLevel} 수준에 맞는 어휘 사용
 5. 줄바꿈 없이 하나의 문단으로 작성
-6. 입력된 활동 내용만 서술하고, 입력에 없는 사실은 추가하지 않음
+6. 입력된 ${totalActivities}개 활동 내용을 모두 빠짐없이 서술하고, 입력에 없는 사실은 추가하지 않음
 7. 마지막 문장도 반드시 구체적인 활동 내용이나 학습 과정 서술로 끝냄
 8. '이러한', '이를 통해', '이와 같이', '앞으로', '향후', '결과적으로', '종합적으로'로 시작하는 요약/정리/마무리 문장 대신, 활동의 세부 과정이나 탐구 내용을 추가 서술
 
@@ -272,7 +310,7 @@ ${lengthInstruction}
 - 글자수 표기, 분석, 검증 포인트, 부가 설명 등 메타 정보는 출력하지 않음
 
 <좋은 예시>
-"교내 토론 대회에서 '인공지능의 윤리'를 주제로 찬성 측 토론자로 참여하여 다양한 근거 자료를 조사하고 논리적으로 주장을 전개함. 특히 반론 과정에서 상대 측의 논거를 정확히 파악하고 재반박하는 능력이 돋보였으며, 팀원들과 역할을 분담하여 자료 수집과 발표 준비를 체계적으로 진행함."
+"토론 활동에서 '인공지능의 윤리'를 주제로 찬성 측 토론자로 참여하여 다양한 근거 자료를 조사하고 논리적으로 주장을 전개함. 특히 반론 과정에서 상대 측의 논거를 정확히 파악하고 재반박하는 능력이 돋보이며, 팀원들과 역할을 분담하여 자료 수집과 발표 준비를 체계적으로 진행함."
     `;
     };
 
@@ -288,6 +326,16 @@ ${lengthInstruction}
             }
         }
         return score;
+    };
+
+    // Fisher-Yates 셔플 알고리즘 (강력한 랜덤)
+    const shuffleArray = (arr) => {
+        const shuffled = [...arr];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        return shuffled;
     };
 
     const generateForStudent = async (student) => {
@@ -306,44 +354,38 @@ ${lengthInstruction}
 
         let selectedActivities = [...validActivities];
 
-        // 학생별 개별 활동이 있으면 관련성 높은 활동 우선 선택
+        // 과세특: 항상 랜덤 셔플 (학생마다 다른 순서로 생성)
         if (student.individualActivity?.trim() && validActivities.length > 0) {
-            // 관련성 점수로 정렬 (높은 점수 우선)
+            // 개별 활동이 있으면 관련성 높은 활동 우선 + 나머지 랜덤
             selectedActivities = [...validActivities].sort((a, b) => {
                 const scoreA = calculateRelevanceScore(a, student.individualActivity);
                 const scoreB = calculateRelevanceScore(b, student.individualActivity);
                 if (scoreB !== scoreA) return scoreB - scoreA;
-                return Math.random() - 0.5; // 동점일 경우 랜덤
+                return Math.random() - 0.5;
             });
-        } else if (additionalInstructions && (additionalInstructions.includes('랜덤') || additionalInstructions.includes('무작위'))) {
-            // 추가 지침에 '랜덤' 또는 '무작위' 키워드가 있으면 활동 셔플
-            selectedActivities = [...validActivities].sort(() => Math.random() - 0.5);
+        } else {
+            // 항상 Fisher-Yates 셔플로 랜덤화
+            selectedActivities = shuffleArray(validActivities);
         }
-        // 그 외에는 원래 순서 유지
 
-        // Activity Selection Logic based on Target Chars - 강화된 로직
+        // Activity Selection Logic based on Target Chars
         if (targetChars < 80) {
-            // 매우 짧으면 1개만 선택
             selectedActivities = selectedActivities.slice(0, 1);
         } else if (targetChars <= 150) {
-            // 150자 이하: 최대 2개
             selectedActivities = selectedActivities.slice(0, Math.min(2, selectedActivities.length));
         } else if (targetChars <= 250) {
-            // 250자 이하: 최대 3개
             selectedActivities = selectedActivities.slice(0, Math.min(3, selectedActivities.length));
         } else if (targetChars <= 350) {
-            // 350자 이하 (1000byte): 최대 4개
             selectedActivities = selectedActivities.slice(0, Math.min(4, selectedActivities.length));
         }
         // 350자 초과: 모든 활동 사용
 
-        const prompt = generatePrompt(student, selectedActivities, targetChars, student.individualActivity || "");
+        const prompt = generatePrompt(student, selectedActivities, targetChars, student.individualActivity || "", selectedModel);
 
         try {
             updateStudent(student.id, "status", "loading");
             const rawResult = await fetchStream({ prompt, additionalInstructions, model: selectedModel });
 
-            // 글자수 초과시 후처리: 완전한 문장으로 자르기
             let result = rawResult;
             result = truncateToCompleteSentence(result, targetChars);
             if (rawResult && result.length < rawResult.length) {

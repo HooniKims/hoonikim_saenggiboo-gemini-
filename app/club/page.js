@@ -5,7 +5,7 @@ import { Plus, Trash2, Upload, Download, Wand2, FileSpreadsheet, Users, UserX, C
 import * as XLSX from "xlsx";
 import { writeExcel } from "../../utils/excel";
 import { cleanMetaInfo, truncateToCompleteSentence, getCharacterGuideline, getPromptCharLimit } from "../../utils/textProcessor";
-import { fetchStream, AVAILABLE_MODELS, DEFAULT_MODEL } from "../../utils/streamFetch";
+import { fetchStream, AVAILABLE_MODELS, DEFAULT_MODEL, isLightweightModel } from "../../utils/streamFetch";
 
 export default function ClubPage() {
     // State
@@ -206,7 +206,7 @@ export default function ClubPage() {
         return score;
     };
 
-    const generatePrompt = (student, selectedActivities, targetChars, individualActivity = "") => {
+    const generatePrompt = (student, selectedActivities, targetChars, individualActivity = "", model = "") => {
         // Perspectives for variety
         const perspectives = [
             '특히 학생의 적극성과 참여도를 중심으로',
@@ -219,10 +219,8 @@ export default function ClubPage() {
             '특히 자기주도성과 탐구 능력을 중심으로'
         ];
 
-        // Select perspective based on student ID (round-robin)
         const selectedPerspective = perspectives[(student.id - 1) % perspectives.length];
 
-        // Character limit logic (same as gwasetuk but simplified without grade)
         let minChar, maxChar;
         if (targetChars === 200) {
             minChar = 150; maxChar = 200;
@@ -233,7 +231,6 @@ export default function ClubPage() {
             maxChar = targetChars;
         }
 
-        // 글자수 지침은 공통 유틸에서 생성
         const lengthInstruction = getCharacterGuideline(targetChars);
 
         const schoolLevelMap = {
@@ -242,33 +239,75 @@ export default function ClubPage() {
             high: "고등학생"
         };
         const targetLevel = schoolLevelMap[schoolLevel] || "중학생";
-        const clubContext = clubName ? `동아리명: ${clubName}` : "동아리명: 미지정 (일반적인 동아리 활동으로 간주)";
+        // 동아리명은 시스템 참고용으로만 전달 (출력에 절대 포함 금지)
+        const clubContext = clubName ? `[시스템 참고 - 출력에 절대 포함 금지] 동아리: ${clubName}` : "";
 
-        const activitiesText = selectedActivities.map(a => `- ${a}`).join("\n");
+        const totalActivities = selectedActivities.length;
+        const activitiesText = selectedActivities.map((a, i) => `- 활동${i + 1}: ${a}`).join("\n");
 
-        // 학생별 개별 활동 내용이 있으면 추가
+        // 활동별 글자수 할당량 계산 (경량 모델용)
+        const charsPerActivity = totalActivities > 0 ? Math.floor(targetChars / totalActivities) : targetChars;
+        const activityAllocation = selectedActivities.map((a, i) =>
+            `활동${i + 1}("${a.substring(0, 15)}${a.length > 15 ? '...' : ''}"): 약 ${charsPerActivity}자`
+        ).join(", ");
+
         const individualActivityText = individualActivity.trim()
-            ? `\n\n[이 학생의 개별 활동 내용]\n${individualActivity}\n(위 개별 활동 내용과 공통 활동 내용을 연결하여 통합적으로 서술해 주세요. 예: '환경 캠페인' 공통 활동과 '포스터 제작'이라는 개별 활동이 있으면, 환경 캠페인에서 포스터 제작을 담당한 것으로 연결하여 서술)`
+            ? `\n\n[이 학생의 개별 활동 내용]\n${individualActivity}\n(위 개별 활동 내용과 공통 활동 내용을 연결하여 통합적으로 서술해 주세요.)`
             : "";
 
+        const isLightweight_ = isLightweightModel(model || selectedModel);
+
+        if (isLightweight_) {
+            // 경량 모델용: 간결하고 명확한 프롬프트
+            return `동아리 특기사항 본문을 작성하세요.
+
+대상: ${targetLevel}
+${clubContext}
+작성 관점: ${selectedPerspective} 서술하세요.
+
+[활동 내용 - 총 ${totalActivities}개, 모두 반영 필수]
+${activitiesText}${individualActivityText}
+
+[활동별 할당량] ${activityAllocation}
+
+[절대금지]
+❌ 동아리명 출력 금지 ("~동아리에서", "~반에서" 등 전부 금지)
+❌ 과거형 금지 (~했음, ~였음, ~되었음, ~하였음, ~보였음 전부 금지)
+❌ 주어 금지 ("학생은", "OO는" 금지)
+❌ 요약/마무리 문장 금지
+
+[필수]
+✅ 현재형 종결어미만 사용: ~함, ~임, ~음, ~보임, ~드러남
+✅ 위 ${totalActivities}개 활동을 모두 다양한 표현으로 서술
+✅ 줄바꿈 없이 하나의 문단
+✅ 오직 본문만 출력
+
+${lengthInstruction}
+
+[좋은 예시]
+"환경 보전 칠페인 기획 과정에서 자료 조사를 담당하여 통계 데이터를 수집하고 인포그래픽으로 제작함. 활동 후 결과 보고서를 작성하여 팀원들과 공유함."
+`;
+        }
+
         return `당신은 학교생활기록부 동아리 활동 특기사항을 작성하는 교사입니다.
-아래 활동 내용을 바탕으로 동아리 세특 본문을 작성하세요.
+아래 ${totalActivities}개의 활동 내용을 바탕으로 동아리 세특 본문을 작성하세요.
+모든 활동을 빠짐없이 반영하되, 각 활동마다 다양한 표현과 구체적인 서술을 사용하세요.
 
 <입력 정보>
 대상: ${targetLevel}
 ${clubContext}
 작성 관점: ${selectedPerspective} 서술하세요.
 
-<활동 내용>
+<활동 내용 - 총 ${totalActivities}개, 반드시 모두 반영>
 ${activitiesText}${individualActivityText}
 
 <작성 규칙>
 1. '학생은', 'OO는' 등 주어를 사용하지 않고, 활동 내용부터 바로 서술
-2. 동아리명을 언급하지 않고 바로 활동 서술로 시작 (예: "~동아리에서"로 시작하지 않음)
-3. 명사형 종결어미(~함, ~보임, ~드러남)를 사용하여 간결하고 명확하게 작성
+2. [절대금지] 동아리명을 출력에 절대 포함하지 않음 (예: "~동아리에서", "~반에서" 등 금지)
+3. [절대금지] 과거형 표현 금지 (~했음, ~였음, ~되었음, ~하였음, ~보였음). 반드시 현재형 명사 종결어미(~함, ~보임, ~드러남, ~임, ~음)만 사용
 4. 구체적인 활동 과정, 노력, 태도 변화를 중심으로 과정 중심 서술
 5. 줄바꿈 없이 하나의 문단으로 작성
-6. 입력된 활동 내용만 서술하고, 입력에 없는 사건/실험 결과/도서명 등을 추가하지 않음
+6. 입력된 ${totalActivities}개 활동 내용을 모두 빠짐없이 서술하고, 입력에 없는 사건/실험 결과/도서명 등을 추가하지 않음
 7. 소논문, 특정 성명, 기관명, 상호명은 기재하지 않음
 8. 마지막 문장도 반드시 구체적인 활동 내용 서술로 끝냄
 9. '이러한', '이를 통해', '이와 같이', '앞으로', '향후', '결과적으로', '종합적으로'로 시작하는 요약/정리/마무리 문장 대신, 활동의 세부 과정이나 협력 모습을 추가 서술
@@ -280,8 +319,27 @@ ${lengthInstruction}
 - 글자수 표기, 분석, 검증 포인트, 부가 설명 등 메타 정보는 출력하지 않음
 
 <좋은 예시>
-"환경 보전 캠페인 기획 과정에서 자료 조사를 담당하여 미세먼지 관련 통계 데이터를 수집하고 인포그래픽으로 제작함. 캠페인 당일 홍보 부스를 운영하며 참여 학생들에게 분리수거 방법을 안내하는 등 적극적인 모습을 보였으며, 활동 후 결과 보고서를 작성하여 팀원들과 공유함."
+"환경 보전 칠페인 기획 과정에서 자료 조사를 담당하여 미세먼지 관련 통계 데이터를 수집하고 인포그래픽으로 제작함. 칠페인 당일 홍보 부스를 운영하며 참여 학생들에게 분리수거 방법을 안내하는 등 적극적인 모습을 보임."
     `;
+    };
+
+    // 시간 순서 키워드 감지 (동아리 활동의 순서성 판단)
+    const hasTimeOrder = (acts) => {
+        const timeKeywords = ['1학기', '2학기', '1차', '2차', '3차', '4차',
+            '1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월',
+            '첫 번째', '두 번째', '세 번째', '네 번째',
+            '초반', '중반', '후반', '전반기', '후반기'];
+        return acts.some(a => timeKeywords.some(kw => a.includes(kw)));
+    };
+
+    // Fisher-Yates 셔플 알고리즘 (강력한 랜덤)
+    const shuffleArray = (arr) => {
+        const shuffled = [...arr];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        return shuffled;
     };
 
     const generateForStudent = async (student) => {
@@ -299,44 +357,41 @@ ${lengthInstruction}
 
         let selectedActivities = [...validActivities];
 
-        // 학생별 개별 활동이 있으면 관련성 높은 활동 우선 선택
+        // 동아리세특: 조건부 랜덤 셔플
         if (student.individualActivity?.trim() && validActivities.length > 0) {
-            // 관련성 점수로 정렬 (높은 점수 우선)
+            // 개별 활동이 있으면 관련성 높은 활동 우선 + 나머지 랜덤
             selectedActivities = [...validActivities].sort((a, b) => {
                 const scoreA = calculateRelevanceScore(a, student.individualActivity);
                 const scoreB = calculateRelevanceScore(b, student.individualActivity);
                 if (scoreB !== scoreA) return scoreB - scoreA;
-                return Math.random() - 0.5; // 동점일 경우 랜덤
+                return Math.random() - 0.5;
             });
-        } else if (additionalInstructions && (additionalInstructions.includes('랜덤') || additionalInstructions.includes('무작위'))) {
-            // 추가 지침에 '랜덤' 또는 '무작위' 키워드가 있으면 활동 셔플
-            selectedActivities = [...validActivities].sort(() => Math.random() - 0.5);
+        } else if (hasTimeOrder(validActivities)) {
+            // 시간 순서 키워드가 있으면 순서 유지 (다양한 표현은 프롬프트로 유도)
+            // selectedActivities = 원래 순서 유지
+        } else {
+            // 순서성 없으면 Fisher-Yates 셔플로 랜덤화
+            selectedActivities = shuffleArray(validActivities);
         }
-        // 그 외에는 원래 순서 유지
 
-        // Activity Selection Logic based on Target Chars - 강화된 로직
+        // Activity Selection Logic based on Target Chars
         if (targetChars < 80) {
-            // 매우 짧으면 1개만 선택
             selectedActivities = selectedActivities.slice(0, 1);
         } else if (targetChars <= 150) {
-            // 150자 이하: 최대 2개
             selectedActivities = selectedActivities.slice(0, Math.min(2, selectedActivities.length));
         } else if (targetChars <= 250) {
-            // 250자 이하: 최대 3개
             selectedActivities = selectedActivities.slice(0, Math.min(3, selectedActivities.length));
         } else if (targetChars <= 350) {
-            // 350자 이하 (1000byte): 최대 4개
             selectedActivities = selectedActivities.slice(0, Math.min(4, selectedActivities.length));
         }
         // 350자 초과: 모든 활동 사용
 
-        const prompt = generatePrompt(student, selectedActivities, targetChars, student.individualActivity || "");
+        const prompt = generatePrompt(student, selectedActivities, targetChars, student.individualActivity || "", selectedModel);
 
         try {
             updateStudent(student.id, "status", "loading");
             const rawResult = await fetchStream({ prompt, additionalInstructions, model: selectedModel });
 
-            // 글자수 초과시 후처리: 완전한 문장으로 자르기
             let result = rawResult;
             result = truncateToCompleteSentence(result, targetChars);
             if (rawResult && result.length < rawResult.length) {
