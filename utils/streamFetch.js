@@ -6,12 +6,13 @@ const OLLAMA_API_KEY = "gudgns0411skaluv2018tjdbs130429";
  * 새 모델 추가 시 여기에만 추가하면 모든 페이지에 반영됩니다.
  */
 export const AVAILABLE_MODELS = [
-    { id: "gemma3:4b-it-q4_K_M", name: "Gemma 3 4B Q4 (기본) ⚡속도", description: "경량 빠른 응답 (3.3GB)", isLightweight: true },
-    { id: "qwen3:4b", name: "Qwen 3 4B ⚡속도", description: "경량 빠른 응답", isLightweight: true },
-    { id: "qwen3:8b", name: "Qwen 3 8B 🔵보통", description: "균형 잡힌 성능", isLightweight: false },
-    { id: "llama3.1:8b", name: "Llama 3.1 8B 🔵보통", description: "범용 모델", isLightweight: false },
-    { id: "gemma3:12b-it-q4_K_M", name: "Gemma 3 12B Q4 ✨품질", description: "고품질 (8GB)", isLightweight: false },
-    { id: "gemma3:12b-it-q8_0", name: "Gemma 3 12B Q8 💎고품질 🐢느림", description: "최고 품질 (13GB)", isLightweight: false },
+    { id: "gemma3:4b-it-q4_K_M", name: "Gemma 3 4B Q4 (기본) ⚡속도", description: "경량 빠른 응답 (3.3GB), Google 경량 모델", isLightweight: true },
+    { id: "qwen3:4b", name: "Qwen 3 4B ⚡속도", description: "경량 빠른 응답, Alibaba 경량 모델", isLightweight: true },
+    { id: "qwen3:8b", name: "Qwen 3 8B 🔵보통", description: "균형 잡힌 성능, 논리·수학 강점", isLightweight: false },
+    { id: "llama3.1:8b", name: "Llama 3.1 8B 🔵보통", description: "Meta 범용 모델, 영어 강점", isLightweight: false },
+    { id: "glm4:9b-chat-q8_0", name: "GLM-4 9B Q8 🔵보통", description: "한중 언어 강점, 9B Q8 고정밀 (10GB)", isLightweight: false },
+    { id: "gemma3:12b-it-q4_K_M", name: "Gemma 3 12B Q4 ✨품질", description: "고품질 (8GB), Google 대형 모델", isLightweight: false },
+    { id: "gemma3:12b-it-q8_0", name: "Gemma 3 12B Q8 💎고품질 🐢느림", description: "최고 품질 (13GB), 최대 정밀도", isLightweight: false },
 ];
 
 export const DEFAULT_MODEL = AVAILABLE_MODELS[0].id;
