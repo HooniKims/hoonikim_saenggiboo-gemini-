@@ -8,7 +8,10 @@ const OLLAMA_API_KEY = "gudgns0411skaluv2018tjdbs130429";
 export const AVAILABLE_MODELS = [
     { id: "gemma3:4b-it-q4_K_M", name: "Gemma 3 4B Q4 (기본) ⚡속도", description: "경량 빠른 응답 (3.3GB), Google 경량 모델", isLightweight: true },
     { id: "qwen3:4b", name: "Qwen 3 4B ⚡속도", description: "경량 빠른 응답, Alibaba 경량 모델", isLightweight: true },
+    { id: "qwen3.5:0.8b", name: "Qwen 3.5 0.8B ⚡초경량", description: "초경량 모델, 매우 빠른 응답", isLightweight: true },
+    { id: "qwen3.5:4b", name: "Qwen 3.5 4B ⚡속도", description: "균형형 경량 모델, 속도와 품질 밸런스", isLightweight: true },
     { id: "qwen3:8b", name: "Qwen 3 8B 🔵보통", description: "균형 잡힌 성능, 논리·수학 강점", isLightweight: false },
+    { id: "qwen3.5:9b", name: "Qwen 3.5 9B 🔵보통", description: "고품질 추론, 복잡한 문장 정리에 유리", isLightweight: false },
     { id: "llama3.1:8b", name: "Llama 3.1 8B 🔵보통", description: "Meta 범용 모델, 영어 강점", isLightweight: false },
     { id: "glm4:9b-chat-q8_0", name: "GLM-4 9B Q8 🔵보통", description: "한중 언어 강점, 9B Q8 고정밀 (10GB)", isLightweight: false },
     { id: "gemma3:12b-it-q4_K_M", name: "Gemma 3 12B Q4 ✨품질", description: "고품질 (8GB), Google 대형 모델", isLightweight: false },
