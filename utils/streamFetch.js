@@ -10,7 +10,6 @@ export const AVAILABLE_MODELS = [
     { id: "qwen3:4b", name: "Qwen 3 4B ⚡속도", description: "경량 빠른 응답, Alibaba 경량 모델", isLightweight: true },
     { id: "qwen3:8b", name: "Qwen 3 8B 🔵보통", description: "균형 잡힌 성능, 논리·수학 강점", isLightweight: false },
     { id: "llama3.1:8b", name: "Llama 3.1 8B 🔵보통", description: "Meta 범용 모델, 영어 강점", isLightweight: false },
-    { id: "glm4:9b-chat-q8_0", name: "GLM-4 9B Q8 🔵보통", description: "한중 언어 강점, 9B Q8 고정밀 (10GB)", isLightweight: false },
     { id: "gemma3:12b-it-q4_K_M", name: "Gemma 3 12B Q4 ✨품질", description: "고품질 (8GB), Google 대형 모델", isLightweight: false },
     { id: "gemma3:12b-it-q8_0", name: "Gemma 3 12B Q8 💎고품질 🐢느림", description: "최고 품질 (13GB), 최대 정밀도", isLightweight: false },
 ];
