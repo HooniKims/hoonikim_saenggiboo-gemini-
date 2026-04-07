@@ -5,7 +5,7 @@ import { Plus, Trash2, Upload, Download, Wand2, FileSpreadsheet, Users, UserX, C
 import * as XLSX from "xlsx";
 import { writeExcel } from "../../utils/excel";
 import { cleanMetaInfo, truncateToCompleteSentence, getCharacterGuideline, getPromptCharLimit } from "../../utils/textProcessor";
-import { fetchStream, AVAILABLE_MODELS, DEFAULT_MODEL, isLightweightModel } from "../../utils/streamFetch";
+import { fetchStream, AVAILABLE_MODELS, DEFAULT_MODEL, getModelOptionLabel, isLightweightModel } from "../../utils/streamFetch";
 
 export default function ClubPage() {
     // State
@@ -675,7 +675,7 @@ ${lengthInstruction}
                                     className="form-select"
                                 >
                                     {AVAILABLE_MODELS.map((m) => (
-                                        <option key={m.id} value={m.id}>{m.name}</option>
+                                        <option key={m.id} value={m.id}>{getModelOptionLabel(m)}</option>
                                     ))}
                                 </select>
                             </div>

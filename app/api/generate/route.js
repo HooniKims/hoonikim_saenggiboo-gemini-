@@ -1,3 +1,5 @@
+import { DEFAULT_MODEL } from "../../../utils/streamFetch";
+
 export async function POST(req) {
     try {
         const body = await req.json();
@@ -37,7 +39,7 @@ export async function POST(req) {
             method: "POST",
             headers,
             body: JSON.stringify({
-                model: "llama3.1:8b",
+                model: DEFAULT_MODEL,
                 messages: [
                     { role: "system", content: systemMessage },
                     { role: "user", content: prompt },

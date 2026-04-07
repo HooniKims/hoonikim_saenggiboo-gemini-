@@ -95,12 +95,15 @@ const OLLAMA_API_URL = "https://api.alluser.site";
 const OLLAMA_API_KEY = "gudgns0411skaluv2018tjdbs130429";
 
 export const AVAILABLE_MODELS = [
-    { id: "qwen3:8b", name: "Qwen 3 8B (추천)", description: "균형 잡힌 성능" },
-    { id: "gemma3:12b-it-q8_0", name: "Gemma 3 12B Q8", description: "최고 품질 (13GB)" },
-    // ... 총 6개 모델 지원
+    { id: "gemma4:e4b", name: "Gemma 4 E4B", description: "기본 모델, 기준 속도·기준 품질" },
+    { id: "gemma4:e2b", name: "Gemma 4 E2B", description: "기본 모델보다 빠름, 품질은 약간 낮음" },
+    { id: "qwen3:4b", name: "Qwen 3 4B", description: "기본 모델보다 많이 빠름, 품질은 더 낮음" },
+    { id: "gemma3:4b-it-q4_K_M", name: "Gemma 3 4B Q4", description: "기본 모델보다 많이 빠름, 품질은 더 낮음" },
+    { id: "qwen3:8b", name: "Qwen 3 8B", description: "기본 모델보다 약간 느림, 품질은 비슷하거나 약간 높음" },
+    { id: "gemma3:12b-it-q8_0", name: "Gemma 3 12B Q8", description: "기본 모델보다 느림, 품질은 높음" },
 ];
 
-export const DEFAULT_MODEL = AVAILABLE_MODELS[0].id;
+export const DEFAULT_MODEL = "gemma4:e4b";
 
 export async function fetchStream(bodyData) {
     const { prompt, additionalInstructions, model } = bodyData;
@@ -167,7 +170,7 @@ const rawResult = await fetchStream({ prompt, additionalInstructions });
 ### 모델 예열 (필수)
 ```bash
 # 모델을 24시간 동안 메모리에 유지
-ollama run gemma3:12b-it-q4_K_M "안녕" --keepalive 24h
+ollama run gemma4:e4b "안녕" --keepalive 24h
 ```
 
 ### 모델 상태 확인
@@ -181,7 +184,7 @@ ollama list      # 설치된 모델 목록
 # crontab -e 로 추가 → 4분마다 ping하여 모델 유지
 */4 * * * * curl -s http://localhost:11434/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -d '{"model":"gemma3:12b-it-q4_K_M","messages":[{"role":"user","content":"ping"}]}' \
+  -d '{"model":"gemma4:e4b","messages":[{"role":"user","content":"ping"}]}' \
   > /dev/null 2>&1
 ```
 
@@ -208,8 +211,8 @@ OLLAMA_API_KEY=gudgns0411skaluv2018tjdbs130429
 |------|-----------|--------|
 | 1 | Ollama 실행 중? | `ollama ps` |
 | 2 | 모델 로드됨? | `ollama ps` (모델명 표시 확인) |
-| 3 | 로컬 API 응답? | `curl http://localhost:11434/v1/chat/completions -H "Content-Type: application/json" -d '{"model":"llama3.1:8b","messages":[{"role":"user","content":"hi"}]}'` |
-| 4 | 프록시 경유 응답? | `curl https://api.alluser.site/v1/chat/completions -H "Content-Type: application/json" -H "X-API-Key: gudgns0411skaluv2018tjdbs130429" -d '{"model":"llama3.1:8b","messages":[{"role":"user","content":"hi"}]}'` |
+| 3 | 로컬 API 응답? | `curl http://localhost:11434/v1/chat/completions -H "Content-Type: application/json" -d '{"model":"gemma4:e4b","messages":[{"role":"user","content":"hi"}]}'` |
+| 4 | 프록시 경유 응답? | `curl https://api.alluser.site/v1/chat/completions -H "Content-Type: application/json" -H "X-API-Key: gudgns0411skaluv2018tjdbs130429" -d '{"model":"gemma4:e4b","messages":[{"role":"user","content":"hi"}]}'` |
 | 5 | Nginx 상태? | `sudo nginx -t` |
 | 6 | CORS 에러? | 브라우저 콘솔에서 `Access-Control-Allow-Origin` 관련 에러 확인 |
-| 7 | 모델 cold start? | `ollama run llama3.1:8b "test" --keepalive 24h` |
+| 7 | 모델 cold start? | `ollama run gemma4:e4b "test" --keepalive 24h` |

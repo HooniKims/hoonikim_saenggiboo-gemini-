@@ -5,7 +5,7 @@ import { Trash2, Download, Wand2, Users, UserX, Copy, Check } from "lucide-react
 import * as XLSX from "xlsx";
 import { writeExcel } from "../../utils/excel";
 import { cleanMetaInfo, truncateToCompleteSentence, getCharacterGuideline, getPromptCharLimit } from "../../utils/textProcessor";
-import { fetchStream, AVAILABLE_MODELS, DEFAULT_MODEL } from "../../utils/streamFetch";
+import { fetchStream, AVAILABLE_MODELS, DEFAULT_MODEL, getModelOptionLabel } from "../../utils/streamFetch";
 
 export default function LetterPage() {
     // State
@@ -413,7 +413,7 @@ ${lengthInstruction}
                                     className="form-select"
                                 >
                                     {AVAILABLE_MODELS.map((m) => (
-                                        <option key={m.id} value={m.id}>{m.name}</option>
+                                        <option key={m.id} value={m.id}>{getModelOptionLabel(m)}</option>
                                     ))}
                                 </select>
                             </div>
