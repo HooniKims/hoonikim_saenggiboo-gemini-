@@ -153,8 +153,8 @@ export default function LetterPage() {
         let minChar, maxChar;
         if (targetChars === 200) {
             minChar = 150; maxChar = 200;
-        } else if (targetChars === 500) {
-            minChar = 400; maxChar = 500;
+        } else if (targetChars === 490) {
+            minChar = 400; maxChar = 490;
         } else {
             minChar = Math.floor(targetChars * 0.8);
             maxChar = targetChars;
@@ -197,17 +197,17 @@ ${lengthInstruction}
     };
 
     const generateForStudent = async (student) => {
-        let targetChars = 500;
-        if (textLength === "1500") targetChars = 500;
+        let targetChars = 490;
+        if (textLength === "1500") targetChars = 490;
         else if (textLength === "1000") targetChars = 330;
         else if (textLength === "600") targetChars = 200;
-        else if (textLength === "manual") targetChars = parseInt(manualLength) || 500;
+        else if (textLength === "manual") targetChars = parseInt(manualLength) || 490;
 
         const prompt = generatePrompt(targetChars);
 
         try {
             updateStudent(student.id, "status", "loading");
-            const rawResult = await fetchStream({ prompt, model: selectedModel });
+            const rawResult = await fetchStream({ prompt, model: selectedModel, targetChars });
 
             // 글자수 초과시 후처리: 완전한 문장으로 자르기
             let result = rawResult;
@@ -373,7 +373,7 @@ ${lengthInstruction}
                                     onChange={(e) => setTextLength(e.target.value)}
                                     className="form-select"
                                 >
-                                    <option value="1500">1500byte (약 500자)</option>
+                                    <option value="1500">1500byte (약 490자)</option>
                                     <option value="1000">1000byte (약 333자)</option>
                                     <option value="600">600byte (약 200자)</option>
                                     <option value="manual">직접 입력</option>

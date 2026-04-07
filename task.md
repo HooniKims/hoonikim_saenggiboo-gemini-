@@ -379,3 +379,14 @@ NEIS 자동 입력 크롬 확장 프로그램 개발이 완료되었습니다.
     - [x] `ollama.md`의 모델 예시, keepalive 명령, curl 점검 예시를 현재 기본 모델 기준으로 갱신
     - [x] `local-llm-api-guide.md`를 추가해 현재 코드와 동일한 모델 목록/기본값/라벨 규칙을 정리
     - [x] `app/api/generate/route.js`의 하드코딩 기본 모델도 공통 기본값과 동기화
+## Phase 28: 생성 길이 490자 및 max_tokens 보정 (2026-04-07) (완료)
+- [x] **1500byte preset 490자 기준으로 조정**
+    - [x] 과세특, 행발, 동아리, 가정통신문 4개 페이지 모두 `1500byte` 선택 시 목표 글자수를 `490`자로 통일
+    - [x] 수동 입력 기본 fallback 값도 `490`자로 동기화
+    - [x] 드롭다운 라벨을 `1500byte (한글 약 490자)` 기준으로 정리
+- [x] **공통 API 출력 길이 상한 보강**
+    - [x] `utils/streamFetch.js`에서 `targetChars`를 받아 요청마다 `max_tokens`를 동적으로 전달
+    - [x] `utils/textProcessor.js`에 목표 글자수 기반 `max_tokens` 추정 함수 추가
+    - [x] large preset 프롬프트 목표 비율을 상향 조정해 너무 짧은 출력이 나오지 않도록 보완
+- [x] **디버깅 가시성 추가**
+    - [x] Ollama 호환 응답의 `finish_reason`이 `length`일 때 콘솔 경고를 남기도록 추가

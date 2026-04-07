@@ -224,8 +224,8 @@ export default function ClubPage() {
         let minChar, maxChar;
         if (targetChars === 200) {
             minChar = 150; maxChar = 200;
-        } else if (targetChars === 500) {
-            minChar = 400; maxChar = 500;
+        } else if (targetChars === 490) {
+            minChar = 400; maxChar = 490;
         } else {
             minChar = Math.floor(targetChars * 0.8);
             maxChar = targetChars;
@@ -349,11 +349,11 @@ ${lengthInstruction}
             return;
         }
 
-        let targetChars = 500;
-        if (textLength === "1500") targetChars = 500;
+        let targetChars = 490;
+        if (textLength === "1500") targetChars = 490;
         else if (textLength === "1000") targetChars = 330;
         else if (textLength === "600") targetChars = 200;
-        else if (textLength === "manual") targetChars = parseInt(manualLength) || 500;
+        else if (textLength === "manual") targetChars = parseInt(manualLength) || 490;
 
         let selectedActivities = [...validActivities];
 
@@ -390,7 +390,7 @@ ${lengthInstruction}
 
         try {
             updateStudent(student.id, "status", "loading");
-            const rawResult = await fetchStream({ prompt, additionalInstructions, model: selectedModel });
+            const rawResult = await fetchStream({ prompt, additionalInstructions, model: selectedModel, targetChars });
 
             let result = rawResult;
             result = truncateToCompleteSentence(result, targetChars);
@@ -650,7 +650,7 @@ ${lengthInstruction}
                                 onChange={(e) => setTextLength(e.target.value)}
                                 className="form-select"
                             >
-                                <option value="1500">1500byte (한글 약 500자)</option>
+                                <option value="1500">1500byte (한글 약 490자)</option>
                                 <option value="1000">1000byte (한글 약 333자)</option>
                                 <option value="600">600byte (한글 약 200자)</option>
                                 <option value="manual">직접 입력</option>

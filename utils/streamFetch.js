@@ -1,3 +1,5 @@
+import { getMaxTokensForTargetChars } from "./textProcessor";
+
 const OLLAMA_API_URL = "https://api.alluser.site";
 const OLLAMA_API_KEY = "gudgns0411skaluv2018tjdbs130429";
 
@@ -40,10 +42,11 @@ function endsWithCompleteSentence(text) {
 /**
  * Ollama API 1회 호출
  */
-async function callOllamaAPI(systemMessage, userPrompt, model) {
+async function callOllamaAPI(systemMessage, userPrompt, model, targetChars) {
     // 경량 모델은 temperature를 약간 올려 다양성 확보
     const isLightweight = isLightweightModel(model || DEFAULT_MODEL);
     const temperature = isLightweight ? 0.8 : 0.7;
+    const maxTokens = getMaxTokensForTargetChars(targetChars);
 
     const res = await fetch(`${OLLAMA_API_URL}/v1/chat/completions`, {
         method: "POST",
@@ -58,6 +61,7 @@ async function callOllamaAPI(systemMessage, userPrompt, model) {
                 { role: "user", content: userPrompt },
             ],
             temperature,
+            max_tokens: maxTokens,
             stream: false,
         }),
     });
@@ -74,6 +78,9 @@ async function callOllamaAPI(systemMessage, userPrompt, model) {
     }
 
     const data = await res.json();
+    if (data.choices?.[0]?.finish_reason === "length") {
+        console.warn(`[Ollama] finish_reason=length model=${model || DEFAULT_MODEL} max_tokens=${maxTokens}`);
+    }
     return data.choices?.[0]?.message?.content || "";
 }
 
@@ -116,7 +123,7 @@ function getStandardSystemMessage() {
 }
 
 export async function fetchStream(bodyData) {
-    const { prompt, additionalInstructions, model } = bodyData;
+    const { prompt, additionalInstructions, model, targetChars } = bodyData;
     const isLightweight = isLightweightModel(model || DEFAULT_MODEL);
 
     // 모델 유형에 따른 시스템 메시지 선택
@@ -136,7 +143,7 @@ export async function fetchStream(bodyData) {
     }
 
     // 1차 시도
-    let content = await callOllamaAPI(systemMessage, finalPrompt, model);
+    let content = await callOllamaAPI(systemMessage, finalPrompt, model, targetChars);
 
     if (!content.trim()) {
         throw new Error("AI 응답이 비어있습니다.");
@@ -154,7 +161,7 @@ export async function fetchStream(bodyData) {
         // 재시도: 이전 결과를 보여주고 완전한 문장으로 끝내도록 요청
         const retryPrompt = `다음 텍스트는 문장이 중간에 끊겼습니다. 이 텍스트를 기반으로, 같은 내용을 완전한 문장으로 끝나도록 다시 작성하세요. 반드시 '~함.', '~음.', '~임.' 등 종결어미와 마침표로 끝내세요. 오직 본문만 출력하세요.\n\n불완전한 텍스트:\n${content}`;
 
-        const retryContent = await callOllamaAPI(systemMessage, retryPrompt, model);
+        const retryContent = await callOllamaAPI(systemMessage, retryPrompt, model, targetChars);
 
         if (retryContent.trim() && endsWithCompleteSentence(retryContent)) {
             content = retryContent;

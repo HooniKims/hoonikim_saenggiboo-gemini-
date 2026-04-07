@@ -1,11 +1,17 @@
 /**
  * AI 생성 텍스트 후처리 유틸리티
- * - 한글 기준 공백 포함 500자 절대 초과 불가
+ * - 한글 기준 공백 포함 490자 절대 초과 불가
  * - 100자 같은 극소 글자수도 완전한 문장으로 마무리
  */
 
-// 절대 상한선: 500자 (1500 bytes)
-const MAX_CHARS = 500;
+// 절대 상한선: 490자 (1500byte 안전 구간)
+const MAX_CHARS = 490;
+
+function clampTargetChars(targetChars) {
+    const numeric = Number(targetChars);
+    if (!Number.isFinite(numeric)) return MAX_CHARS;
+    return Math.min(Math.max(Math.floor(numeric), 1), MAX_CHARS);
+}
 
 /**
  * 글자수에 따른 동적 버퍼 비율 계산
@@ -16,7 +22,7 @@ function getBufferRatio(targetChars) {
     if (targetChars <= 150) return 0.75;      // 112자 요청
     if (targetChars <= 200) return 0.80;      // 160자 요청
     if (targetChars <= 300) return 0.85;      // 255자 요청
-    return 0.90;                               // 기본 90%
+    return 0.96;                               // 490자 설정은 최대한 길게 유도
 }
 
 /**
@@ -25,9 +31,14 @@ function getBufferRatio(targetChars) {
  * @returns {number} AI에게 요청할 글자수
  */
 export function getPromptCharLimit(userRequestedChars) {
-    const targetChars = Math.min(userRequestedChars, MAX_CHARS);
+    const targetChars = clampTargetChars(userRequestedChars);
     const bufferRatio = getBufferRatio(targetChars);
     return Math.floor(targetChars * bufferRatio);
+}
+
+export function getMaxTokensForTargetChars(targetChars) {
+    const cappedChars = clampTargetChars(targetChars);
+    return Math.max(256, Math.min(1024, Math.ceil(cappedChars * 2.2)));
 }
 
 /**
@@ -37,7 +48,7 @@ export function getPromptCharLimit(userRequestedChars) {
  */
 export function getCharacterGuideline(targetChars) {
     const promptLimit = getPromptCharLimit(targetChars);
-    const maxAllowed = Math.min(targetChars, MAX_CHARS);
+    const maxAllowed = clampTargetChars(targetChars);
 
     if (targetChars <= 100) {
         return `
@@ -90,7 +101,7 @@ export function getCharacterGuideline(targetChars) {
 export function cleanMetaInfo(text) {
     if (!text) return text;
 
-    // 괄호 안의 메타 정보 제거: (자세한 내용 포함, 330자), (약 500자), (글자수: 330) 등
+    // 괄호 안의 메타 정보 제거: (자세한 내용 포함, 330자), (약 490자), (글자수: 330) 등
     let cleaned = text.replace(/\s*\([^)]*\d+자[^)]*\)/g, '');
     cleaned = cleaned.replace(/\s*\([^)]*글자[^)]*\)/g, '');
     cleaned = cleaned.replace(/\s*\([^)]*자세한[^)]*\)/g, '');
@@ -144,7 +155,7 @@ export function truncateToCompleteSentence(text, targetChars) {
     if (!cleaned) return '';
 
     // 절대 상한선 적용
-    const maxAllowed = Math.min(targetChars, MAX_CHARS);
+    const maxAllowed = clampTargetChars(targetChars);
 
     // 이미 제한 내이고 완전한 문장으로 끝나면 그대로 반환
     if (cleaned.length <= maxAllowed && isCompleteSentence(cleaned)) {

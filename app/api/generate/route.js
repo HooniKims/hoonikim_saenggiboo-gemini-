@@ -1,9 +1,11 @@
 import { DEFAULT_MODEL } from "../../../utils/streamFetch";
+import { getMaxTokensForTargetChars } from "../../../utils/textProcessor";
 
 export async function POST(req) {
     try {
         const body = await req.json();
-        const { prompt, additionalInstructions } = body;
+        const { prompt, additionalInstructions, targetChars } = body;
+        const maxTokens = getMaxTokensForTargetChars(targetChars);
 
         const ollamaUrl = process.env.OLLAMA_API_URL;
         const ollamaKey = process.env.OLLAMA_API_KEY;
@@ -45,6 +47,7 @@ export async function POST(req) {
                     { role: "user", content: prompt },
                 ],
                 temperature: 0.7,
+                max_tokens: maxTokens,
                 stream: false,
             }),
         });
