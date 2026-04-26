@@ -53,3 +53,13 @@ test("pages tell the model to start with selected activity one before individual
     assert.match(clubSource, /첫 문장은 반드시 위 \[활동 내용\]의 활동1 공통 활동으로 시작/);
     assert.match(clubSource, /개별 활동 내용을 첫 문장이나 첫 활동처럼 우선 배치하지 않음/);
 });
+
+test("club prompt avoids fixed report-writing openings and asks for varied starts", () => {
+    const clubSource = readFileSync(new URL("../app/club/page.js", import.meta.url), "utf8");
+
+    assert.match(clubSource, /활동1의 핵심 소재는 유지하되 활동명을 그대로 베껴 시작하지 않음/);
+    assert.match(clubSource, /보고서 작성을 통해/);
+    assert.match(clubSource, /탐구하는 과정에서/);
+    assert.match(clubSource, /고민을 가지고/);
+    assert.match(clubSource, /과학 실험 보고서 작성에서/);
+});
