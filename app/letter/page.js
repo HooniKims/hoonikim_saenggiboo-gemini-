@@ -4,8 +4,15 @@ import { useState, useRef } from "react";
 import { Trash2, Download, Wand2, Users, UserX, Copy, Check } from "lucide-react";
 import * as XLSX from "xlsx";
 import { writeExcel } from "../../utils/excel";
-import { cleanMetaInfo, truncateToCompleteSentence, getCharacterGuideline, getPromptCharLimit } from "../../utils/textProcessor";
-import { fetchStream, AVAILABLE_MODELS, DEFAULT_MODEL, getModelOptionLabel } from "../../utils/streamFetch";
+import { getCharacterGuideline, getMinimumTargetBytes, getUtf8ByteLength, normalizeTargetBytes, normalizeTargetChars } from "../../utils/textProcessor";
+import { fetchStream, AVAILABLE_MODELS, DEFAULT_MODEL, getModelOptionLabel, isNvidiaModel } from "../../utils/streamFetch";
+import { fetchNvidiaCompletion } from "../../utils/nvidiaFetch";
+import { fetchOpenAICompletion } from "../../utils/openAIFetch";
+import { useOpenAIKey } from "../../utils/openAIKey";
+import OpenAIKeyControl from "../../components/OpenAIKeyControl";
+import { generateWithSilentValidation } from "../../utils/generationHarness";
+import { getGenerationProvider, runGenerationWithProgress } from "../../utils/generationProgress";
+import { buildShuffledKeywordContext } from "../../utils/letterKeywords";
 
 export default function LetterPage() {
     // State
@@ -13,13 +20,28 @@ export default function LetterPage() {
     const [isManualInput, setIsManualInput] = useState(false);
     const [manualCountValue, setManualCountValue] = useState("");
 
-    const [students, setStudents] = useState([{ id: 1, name: "", result: "", status: "idle" }]);
+    const [students, setStudents] = useState([{ id: 1, name: "", result: "", status: "idle", progress: "" }]);
     const [textLength, setTextLength] = useState("1500");
     const [manualLength, setManualLength] = useState("");
     const [isGenerating, setIsGenerating] = useState(false);
     const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL);
     const [copiedId, setCopiedId] = useState(null);
     const fileInputRef = useRef(null);
+    const {
+        openAIKeyInput,
+        setOpenAIKeyInput,
+        appliedOpenAIKey,
+        applyOpenAIKey,
+        clearOpenAIKey,
+        isOpenAIKeyApplied,
+        maskedOpenAIKey,
+        selectedOpenAIModel,
+        setSelectedOpenAIModel,
+    } = useOpenAIKey();
+    const isNvidiaSelected = isNvidiaModel(selectedModel);
+    const generationStatusText = isNvidiaSelected
+        ? "NVIDIA NIM 모델로 생성 중..."
+        : appliedOpenAIKey ? "OpenAI API key를 사용하여 생성 중..." : "생성 중...";
 
     // Letter Specific State
     const [season, setSeason] = useState("summer"); // summer, winter
@@ -38,7 +60,7 @@ export default function LetterPage() {
         const newStudents = [...students];
         if (count > newStudents.length) {
             for (let i = newStudents.length + 1; i <= count; i++) {
-                newStudents.push({ id: i, name: "", result: "", status: "idle" });
+                newStudents.push({ id: i, name: "", result: "", status: "idle", progress: "" });
             }
         } else {
             newStudents.splice(count);
@@ -147,7 +169,7 @@ export default function LetterPage() {
     };
 
 
-    // cleanMetaInfo, truncateToCompleteSentence는 textProcessor에서 import됨
+    // 생성 결과 검증과 후처리는 generationHarness에서 내부 처리됨
 
     const generatePrompt = (targetChars) => {
         let minChar, maxChar;
@@ -161,9 +183,10 @@ export default function LetterPage() {
         }
 
         // 글자수 지침은 공통 유틸에서 생성
-        const lengthInstruction = getCharacterGuideline(targetChars);
+        const targetBytes = normalizeTargetBytes(textLength, manualLength);
+        const lengthInstruction = getCharacterGuideline(targetChars, targetBytes, getMinimumTargetBytes(targetBytes));
 
-        const keywordContext = keywords ? `입력된 키워드: ${keywords}` : "입력된 키워드: 학업, 건강, 친구관계, 가족관계";
+        const keywordContext = buildShuffledKeywordContext(keywords);
 
         let promptContent = "";
 
@@ -184,6 +207,7 @@ ${keywordContext}
 5. 특정 과목명(국어, 수학 등)이나 점수/등수는 절대 언급하지 않음
 6. 명사형 종결어미가 아닌, 경어체("~합니다.", "~습니다.", "~바랍니다.")와 마침표(.)로 문장을 완결되게 끝냄
 7. 줄바꿈 없이 하나의 문단으로 작성
+8. '마지막으로', '끝으로', '마무리하며', '덧붙여', '추가로' 같은 마무리 접속어를 사용하지 않음
 
 ${lengthInstruction}
 
@@ -197,30 +221,51 @@ ${lengthInstruction}
     };
 
     const generateForStudent = async (student) => {
-        let targetChars = 490;
-        if (textLength === "1500") targetChars = 490;
-        else if (textLength === "1000") targetChars = 330;
-        else if (textLength === "600") targetChars = 200;
-        else if (textLength === "manual") targetChars = parseInt(manualLength) || 490;
+        const targetBytes = normalizeTargetBytes(textLength, manualLength);
+        const targetChars = normalizeTargetChars(textLength, manualLength);
+        const minTargetBytes = getMinimumTargetBytes(targetBytes);
 
         const prompt = generatePrompt(targetChars);
 
         try {
             updateStudent(student.id, "status", "loading");
-            const rawResult = await fetchStream({ prompt, model: selectedModel, targetChars });
+            updateStudent(student.id, "progress", "생성 준비 중...");
+            const generationResult = await generateWithSilentValidation({
+                prompt,
+                maxTargetBytes: targetBytes,
+                minTargetBytes,
+                targetChars,
+                mode: "letter",
+                forbiddenTerms: [student.name],
+                maxRepairAttempts: 1,
+                generateOnce: (nextPrompt, { attempt, previousValidation }) => runGenerationWithProgress({
+                    attempt,
+                    previousValidation,
+                    provider: getGenerationProvider({ isNvidiaSelected, hasOpenAIKey: Boolean(appliedOpenAIKey) }),
+                    setProgress: (message) => updateStudent(student.id, "progress", message),
+                    run: () => isNvidiaSelected
+                        ? fetchNvidiaCompletion({ prompt: nextPrompt, targetChars, model: selectedModel })
+                        : appliedOpenAIKey
+                            ? fetchOpenAICompletion({ prompt: nextPrompt, apiKey: appliedOpenAIKey, targetChars, model: selectedOpenAIModel })
+                            : fetchStream({ prompt: nextPrompt, model: selectedModel, targetChars, outputType: "letter" }),
+                }),
+            });
 
-            // 글자수 초과시 후처리: 완전한 문장으로 자르기
-            let result = rawResult;
-            result = truncateToCompleteSentence(result, targetChars);
-            if (rawResult && result.length < rawResult.length) {
-                console.log(`[글자수 조정] 원본: ${rawResult.length}자 → ${result.length}자 (완전한 문장으로)`);
+            if (generationResult.repaired) {
+                console.log(`[내부 검증] 학생 ${student.id}: ${generationResult.attempts}회 시도 후 규칙 보정`);
+            }
+            if (!generationResult.validation.ok) {
+                console.warn(`[내부 검증] 학생 ${student.id}: 최종 결과 일부 규칙 확인 필요`, generationResult.validation.issues);
             }
 
+            const result = generationResult.text;
             updateStudent(student.id, "result", result);
             updateStudent(student.id, "status", "success");
+            updateStudent(student.id, "progress", "");
         } catch (error) {
             console.error(error);
             updateStudent(student.id, "status", "error");
+            updateStudent(student.id, "progress", "");
             alert(`학생 ${student.id} 생성 실패: ${error.message}`);
         }
     };
@@ -404,29 +449,41 @@ ${lengthInstruction}
                             />
                         </div>
 
-                        <div className="flex gap-4 flex-col sm:flex-row mt-auto">
-                            <div className="form-group" style={{ marginBottom: 0, flex: 1 }}>
-                                <label className="form-label">AI 모델</label>
-                                <select
-                                    value={selectedModel}
-                                    onChange={(e) => setSelectedModel(e.target.value)}
-                                    className="form-select"
-                                >
-                                    {AVAILABLE_MODELS.map((m) => (
-                                        <option key={m.id} value={m.id}>{getModelOptionLabel(m)}</option>
-                                    ))}
-                                </select>
-                            </div>
+                        <div className="form-group" style={{ marginBottom: 0 }}>
+                            <label className="form-label">AI 모델</label>
+                            <select
+                                value={selectedModel}
+                                onChange={(e) => setSelectedModel(e.target.value)}
+                                className="form-select"
+                            >
+                                {AVAILABLE_MODELS.map((m) => (
+                                    <option key={m.id} value={m.id}>{getModelOptionLabel(m)}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <OpenAIKeyControl
+                            openAIKeyInput={openAIKeyInput}
+                            setOpenAIKeyInput={setOpenAIKeyInput}
+                            applyOpenAIKey={applyOpenAIKey}
+                            clearOpenAIKey={clearOpenAIKey}
+                            isOpenAIKeyApplied={isOpenAIKeyApplied}
+                            maskedOpenAIKey={maskedOpenAIKey}
+                            selectedOpenAIModel={selectedOpenAIModel}
+                            setSelectedOpenAIModel={setSelectedOpenAIModel}
+                        />
+
+                        <div className="flex gap-2 mt-auto">
                             <button
                                 onClick={generateAll}
                                 disabled={isGenerating}
-                                className="btn-primary"
-                                style={{ padding: '12px 24px', fontSize: '1.1rem', alignSelf: 'flex-end' }}
+                                className="btn-primary flex-1"
+                                style={{ padding: '12px 24px', fontSize: '1.1rem' }}
                             >
                                 {isGenerating ? (
                                     <>
                                         <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                                        생성 중...
+                                        {generationStatusText}
                                     </>
                                 ) : (
                                     <>
@@ -437,7 +494,7 @@ ${lengthInstruction}
                             <button
                                 onClick={downloadExcel}
                                 className="btn-secondary"
-                                style={{ padding: '12px 24px', display: 'flex', alignItems: 'center', gap: '8px', alignSelf: 'flex-end' }}
+                                style={{ padding: '12px 24px', display: 'flex', alignItems: 'center', gap: '8px' }}
                             >
                                 <Download size={20} /> 엑셀
                             </button>
@@ -543,14 +600,19 @@ ${lengthInstruction}
                                         {student.status === "loading" && (
                                             <div className="loading-overlay">
                                                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-2"></div>
-                                                <span style={{ fontSize: '0.9rem', fontWeight: 500, color: '#2563eb' }}>생성 중...</span>
+                                                <span style={{ fontSize: '0.9rem', fontWeight: 500, color: '#2563eb' }}>
+                                                    {student.progress || generationStatusText}
+                                                </span>
                                             </div>
                                         )}
                                     </div>
 
-                                    {/* 복사 버튼 */}
+                                    {/* 결과 정보 및 복사 버튼 */}
                                     {student.result && (
-                                        <div className="flex justify-end mt-2">
+                                        <div className="result-action-row">
+                                            <span className="result-byte-count">
+                                                {getUtf8ByteLength(student.result).toLocaleString()} byte
+                                            </span>
                                             <button
                                                 onClick={() => {
                                                     const copyText = (text) => {

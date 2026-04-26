@@ -1,21 +1,21 @@
-import { DEFAULT_MODEL } from "../../../utils/streamFetch";
-import { getMaxTokensForTargetChars } from "../../../utils/textProcessor";
+import { DEFAULT_LOCAL_MODEL, getLocalModelConfig, getMaxTokensForLocalModel } from "../../../utils/streamFetch";
 
 export async function POST(req) {
     try {
         const body = await req.json();
         const { prompt, additionalInstructions, targetChars } = body;
-        const maxTokens = getMaxTokensForTargetChars(targetChars);
+        const maxTokens = getMaxTokensForLocalModel(DEFAULT_LOCAL_MODEL, targetChars);
+        const modelConfig = getLocalModelConfig(DEFAULT_LOCAL_MODEL);
 
-        const ollamaUrl = process.env.OLLAMA_API_URL;
-        const ollamaKey = process.env.OLLAMA_API_KEY;
+        const localApiUrl = modelConfig.apiUrl;
+        const localApiKey = modelConfig.apiKey;
 
-        console.log("[DEBUG] OLLAMA_API_URL:", ollamaUrl);
-        console.log("[DEBUG] OLLAMA_API_KEY exists:", !!ollamaKey);
+        console.log("[DEBUG] LOCAL_LLM_API_URL:", localApiUrl);
+        console.log("[DEBUG] LOCAL_LLM_API_KEY exists:", !!localApiKey);
 
-        if (!ollamaUrl) {
+        if (!localApiUrl) {
             return Response.json(
-                { error: "OLLAMA_API_URL 환경 변수가 설정되지 않았습니다." },
+                { error: "로컬 LLM API URL이 설정되지 않았습니다." },
                 { status: 500 }
             );
         }
@@ -27,27 +27,28 @@ export async function POST(req) {
         }
 
         // 단순 비스트리밍 요청 (디버깅용)
-        const apiUrl = `${ollamaUrl}/v1/chat/completions`;
+        const apiUrl = `${localApiUrl}/v1/chat/completions`;
         console.log("[DEBUG] Calling:", apiUrl);
 
         const headers = {
             "Content-Type": "application/json",
         };
-        if (ollamaKey) {
-            headers["X-API-Key"] = ollamaKey;
+        if (localApiKey) {
+            headers["X-API-Key"] = localApiKey;
         }
 
         const apiResponse = await fetch(apiUrl, {
             method: "POST",
             headers,
             body: JSON.stringify({
-                model: DEFAULT_MODEL,
+                model: modelConfig.apiModel,
                 messages: [
                     { role: "system", content: systemMessage },
                     { role: "user", content: prompt },
                 ],
                 temperature: 0.7,
                 max_tokens: maxTokens,
+                reasoning_effort: "none",
                 stream: false,
             }),
         });
@@ -58,7 +59,7 @@ export async function POST(req) {
             const errorText = await apiResponse.text();
             console.error("[DEBUG] API Error:", errorText);
             return Response.json(
-                { error: `Ollama API 오류 (${apiResponse.status}): ${errorText}` },
+                { error: `로컬 LLM API 오류 (${apiResponse.status}): ${errorText}` },
                 { status: 500 }
             );
         }

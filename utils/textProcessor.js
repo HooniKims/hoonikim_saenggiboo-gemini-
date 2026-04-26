@@ -1,11 +1,13 @@
 /**
  * AI 생성 텍스트 후처리 유틸리티
- * - 한글 기준 공백 포함 490자 절대 초과 불가
+ * - 선택한 글자수/byte 제한 절대 초과 불가
  * - 100자 같은 극소 글자수도 완전한 문장으로 마무리
  */
 
-// 절대 상한선: 490자 (1500byte 안전 구간)
-const MAX_CHARS = 490;
+// byte 제한이 실제 기준이며, 글자수는 모델에게 분량을 유도하는 보조 기준입니다.
+const MAX_CHARS = 650;
+const MAX_BYTES = 1500;
+const AVG_KOREAN_BYTES_WITH_SPACES = 2.55;
 
 function clampTargetChars(targetChars) {
     const numeric = Number(targetChars);
@@ -13,16 +15,42 @@ function clampTargetChars(targetChars) {
     return Math.min(Math.max(Math.floor(numeric), 1), MAX_CHARS);
 }
 
+export function normalizeTargetChars(textLength, manualLength = "") {
+    const byteLimit = normalizeTargetBytes(textLength, manualLength);
+    return clampTargetChars(Math.ceil(byteLimit / AVG_KOREAN_BYTES_WITH_SPACES));
+}
+
+export function normalizeTargetBytes(textLength, manualLength = "") {
+    if (textLength === "1500") return 1500;
+    if (textLength === "1000") return 1000;
+    if (textLength === "600") return 600;
+    if (textLength === "manual" && String(manualLength || "").trim() === "") return MAX_BYTES;
+    const numeric = Number(textLength === "manual" ? manualLength : textLength);
+    if (!Number.isFinite(numeric)) return MAX_BYTES;
+    return Math.min(Math.max(Math.floor(numeric), 1), MAX_BYTES);
+}
+
+export function getUtf8ByteLength(text) {
+    const value = String(text || "");
+    if (typeof TextEncoder !== "undefined") {
+        return new TextEncoder().encode(value).length;
+    }
+
+    return Array.from(value).reduce((total, char) => {
+        const codePoint = char.codePointAt(0);
+        if (codePoint <= 0x7f) return total + 1;
+        if (codePoint <= 0x7ff) return total + 2;
+        if (codePoint <= 0xffff) return total + 3;
+        return total + 4;
+    }, 0);
+}
+
 /**
  * 글자수에 따른 동적 버퍼 비율 계산
  * 짧은 글자수일수록 더 많은 여유 공간 확보
  */
 function getBufferRatio(targetChars) {
-    if (targetChars <= 100) return 0.70;      // 70자 요청 → 30자 여유
-    if (targetChars <= 150) return 0.75;      // 112자 요청
-    if (targetChars <= 200) return 0.80;      // 160자 요청
-    if (targetChars <= 300) return 0.85;      // 255자 요청
-    return 0.96;                               // 490자 설정은 최대한 길게 유도
+    return 0.85;
 }
 
 /**
@@ -36,9 +64,32 @@ export function getPromptCharLimit(userRequestedChars) {
     return Math.floor(targetChars * bufferRatio);
 }
 
+export function getMinimumTargetChars(userRequestedChars) {
+    const targetChars = clampTargetChars(userRequestedChars);
+    return Math.floor(targetChars * 0.85);
+}
+
+export function getMinimumTargetBytes(byteLimit) {
+    const numeric = Number(byteLimit);
+    const normalizedBytes = Number.isFinite(numeric)
+        ? Math.min(Math.max(Math.floor(numeric), 1), MAX_BYTES)
+        : MAX_BYTES;
+    return Math.floor(normalizedBytes * 0.85);
+}
+
 export function getMaxTokensForTargetChars(targetChars) {
     const cappedChars = clampTargetChars(targetChars);
-    return Math.max(256, Math.min(1024, Math.ceil(cappedChars * 2.2)));
+    // 토큰 한도는 글자수 제한보다 넉넉하게 잡고, 최종 글자수는 후처리/검증에서 강제한다.
+    return Math.max(512, Math.min(2048, Math.ceil(cappedChars * 3.4)));
+}
+
+export function getExpansionFrameworkGuideline() {
+    return `<내용 확장 방식: Why-How-What-Learn>
+- Why(동기): 입력된 활동에서 드러난 관심, 문제의식, 참여 이유를 짧게 드러냄
+- How(과정): 조사, 토의, 발표, 제작, 실험, 피드백 반영 등 수행 과정을 구체화함
+- What(결과): 완성한 산출물, 발표 내용, 정리한 근거, 변화한 행동 등 관찰 가능한 결과를 서술함
+- Learn(성장): 태도, 사고력, 협업, 표현력, 자기주도성 등 성장 단서를 현재형으로 연결함
+- 새 활동, 새 작품, 새 수상, 새 기관, 새 실험 결과를 지어내지 않고 입력된 활동의 단서만 확장함`;
 }
 
 /**
@@ -46,9 +97,30 @@ export function getMaxTokensForTargetChars(targetChars) {
  * @param {number} targetChars - 목표 글자수
  * @returns {string} 프롬프트에 추가할 글자수 지침
  */
-export function getCharacterGuideline(targetChars) {
+export function getCharacterGuideline(targetChars, targetBytes = 0, minTargetBytes = 0) {
     const promptLimit = getPromptCharLimit(targetChars);
     const maxAllowed = clampTargetChars(targetChars);
+    const maxAllowedBytes = Number(targetBytes) > 0 ? Math.min(Math.floor(Number(targetBytes)), MAX_BYTES) : 0;
+    const minAllowedBytes = Number(minTargetBytes) > 0 ? Math.floor(Number(minTargetBytes)) : 0;
+    const expansionFramework = getExpansionFrameworkGuideline();
+
+    if (maxAllowedBytes > 0) {
+        return `
+<분량 제한>
+전체 byte: ${maxAllowedBytes}byte 이하 (초과 불가)
+목표 byte: ${minAllowedBytes || Math.floor(maxAllowedBytes * 0.85)}byte ~ ${maxAllowedBytes}byte
+작성 분량 참고: 한글 기준 약 ${promptLimit}자 안팎, 공백과 문장부호에 따라 달라질 수 있음
+
+작성 방법:
+1. 최종 출력은 선택한 byte 제한의 85% 이상을 목표로 충분히 구체적으로 작성
+2. 분량이 부족하지 않도록 활동의 과정, 근거, 태도, 변화, 구체적 수행 장면을 촘촘하게 서술
+3. 초과가 우려되면 마지막 문장 하나를 줄이되, 문장이 중간에 끊기지 않도록 작성
+4. 모든 문장은 완전한 종결어미와 마침표로 끝냄
+5. 줄바꿈 없이 하나의 문단으로 작성
+
+${expansionFramework}
+`;
+    }
 
     if (targetChars <= 100) {
         return `
@@ -62,6 +134,8 @@ export function getCharacterGuideline(targetChars) {
 3. "깊이 있게 읽음." 같은 내용 없는 짧은 문장은 사용하지 않음
 4. 모든 문장은 '~함.', '~음.', '~임.' 등 완전한 종결어미로 끝냄
 5. 최종 출력은 ${maxAllowed}자 이하, 완전한 문장으로 끝냄
+
+${expansionFramework}
 `;
     } else if (targetChars <= 200) {
         return `
@@ -76,6 +150,8 @@ export function getCharacterGuideline(targetChars) {
 4. 문장 예시: "환경 문제에 대한 조사 활동에서 미세먼지의 원인과 대책을 분석하고 발표 자료를 체계적으로 구성함."
 5. 모든 문장은 완전한 종결어미(~함, ~음, ~임)와 마침표로 끝냄
 6. 최종 출력은 ${maxAllowed}자 이하, 완전한 문장으로 끝냄
+
+${expansionFramework}
 `;
     } else {
         return `
@@ -89,6 +165,8 @@ export function getCharacterGuideline(targetChars) {
 3. 각 문장에 구체적인 활동, 과정, 결과를 포함하여 의미 있게 서술
 4. 모든 문장은 완전한 종결어미로 끝냄. 마지막 문장이 중간에 끊기지 않도록 함
 5. 최종 출력은 ${maxAllowed}자 이하, 완전한 문장으로 끝냄
+
+${expansionFramework}
 `;
     }
 }
@@ -128,7 +206,7 @@ function isCompleteSentence(text) {
     if (!text) return false;
     const trimmed = text.trim();
     // 한국어 종결 패턴: ~함, ~음, ~임, ~됨, ~봄, ~옴, ~다, ~요 + 마침표/느낌표/물음표
-    return /[함음임됨봄옴줌춤움늠름다요까니][.!?]\s*$/.test(trimmed);
+    return /(?:함|음|임|됨|봄|옴|줌|춤|움|늠|름|남|냄|김|짐|님|감|다|요|까|니|보임|드러남|나타남|돋보임|지님|뛰어남)[.!?]\s*$/.test(trimmed);
 }
 
 /**
@@ -217,7 +295,7 @@ export function truncateToCompleteSentence(text, targetChars) {
             result = truncated.substring(0, lastPeriodIndex + 1);
         } else {
             // 마침표가 너무 앞에 있으면 종결어미 패턴으로 자르기
-            const match = truncated.match(/.*[함음임됨봄옴줌춤움늠름다요까니]/);
+            const match = truncated.match(/.*(?:함|음|임|됨|봄|옴|줌|춤|움|늠|름|남|냄|김|짐|님|감|다|요|까|니|보임|드러남|나타남|돋보임|지님|뛰어남)/);
             if (match) {
                 result = match[0] + '.';
             } else {

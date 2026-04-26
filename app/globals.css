@@ -149,6 +149,11 @@ button {
   font-weight: 700;
 }
 
+.hero-subtitle-emphasis {
+  display: inline-block;
+  white-space: nowrap;
+}
+
 /* Privacy Notice */
 .privacy-notice {
   background-color: #fff;
@@ -666,6 +671,61 @@ button {
   border-color: #f97316;
 }
 
+.activity-grade-panel {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 18px;
+  padding: 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: var(--radius-md);
+  background-color: #f8fafc;
+}
+
+.activity-grade-title {
+  grid-column: 1 / -1;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.activity-grade-row {
+  display: grid;
+  grid-template-columns: max-content max-content;
+  justify-content: start;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.activity-grade-label {
+  min-width: 0;
+  color: var(--text-sub);
+  font-size: 0.74rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.activity-grade-buttons {
+  display: flex;
+  gap: 3px;
+}
+
+.btn-grade.btn-grade-sm {
+  width: 22px;
+  height: 24px;
+  border-width: 1px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+}
+
+@media (max-width: 420px) {
+  .activity-grade-panel {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Utilities & Layout Helpers */
 .hidden {
   display: none !important;
@@ -805,8 +865,8 @@ button {
 }
 
 .textarea-auto {
-  min-height: 120px;
-  max-height: 500px;
+  min-height: 160px;
+  max-height: 560px;
   resize: none;
   overflow-y: auto !important;
   line-height: 1.6;
@@ -829,6 +889,29 @@ button {
   bottom: 12px;
   right: 12px;
   z-index: 20;
+}
+
+.result-action-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.result-byte-count {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 4px 10px;
+  color: #64748b;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 /* Copy Button Style */

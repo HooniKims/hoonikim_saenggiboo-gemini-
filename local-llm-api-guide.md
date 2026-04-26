@@ -8,10 +8,7 @@
 export const AVAILABLE_MODELS = [
     { id: "gemma4:e4b", name: "Gemma 4 E4B", description: "기본 모델, 기준 속도·기준 품질" },
     { id: "gemma4:e2b", name: "Gemma 4 E2B", description: "기본 모델보다 빠름, 품질은 약간 낮음" },
-    { id: "qwen3:4b", name: "Qwen 3 4B", description: "기본 모델보다 많이 빠름, 품질은 더 낮음" },
-    { id: "gemma3:4b-it-q4_K_M", name: "Gemma 3 4B Q4", description: "기본 모델보다 많이 빠름, 품질은 더 낮음" },
-    { id: "qwen3:8b", name: "Qwen 3 8B", description: "기본 모델보다 약간 느림, 품질은 비슷하거나 약간 높음" },
-    { id: "gemma3:12b-it-q8_0", name: "Gemma 3 12B Q8", description: "기본 모델보다 느림, 품질은 높음" },
+    { id: "gemma4:26b", name: "Gemma 4 26B", description: "기본 모델보다 느림, 품질은 높음" },
 ];
 
 export const DEFAULT_MODEL = "gemma4:e4b";

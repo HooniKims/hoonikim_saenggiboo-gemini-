@@ -4,8 +4,16 @@ import { useState, useRef, useEffect } from "react";
 import { Plus, Trash2, Upload, Download, Wand2, FileSpreadsheet, Users, UserX, Copy, Check } from "lucide-react";
 import * as XLSX from "xlsx";
 import { writeExcel } from "../../utils/excel";
-import { cleanMetaInfo, truncateToCompleteSentence, getCharacterGuideline, getPromptCharLimit } from "../../utils/textProcessor";
-import { fetchStream, AVAILABLE_MODELS, DEFAULT_MODEL, getModelOptionLabel, isLightweightModel } from "../../utils/streamFetch";
+import { getCharacterGuideline, getMinimumTargetBytes, getUtf8ByteLength, normalizeTargetBytes, normalizeTargetChars } from "../../utils/textProcessor";
+import { fetchStream, AVAILABLE_MODELS, DEFAULT_MODEL, getModelOptionLabel, isLightweightModel, isNvidiaModel } from "../../utils/streamFetch";
+import { fetchNvidiaCompletion } from "../../utils/nvidiaFetch";
+import { fetchOpenAICompletion } from "../../utils/openAIFetch";
+import { useOpenAIKey } from "../../utils/openAIKey";
+import OpenAIKeyControl from "../../components/OpenAIKeyControl";
+import { generateWithSilentValidation } from "../../utils/generationHarness";
+import { getGenerationProvider, runGenerationWithProgress } from "../../utils/generationProgress";
+import { fetchSearchContext } from "../../utils/searchContextFetch";
+import { getClubHighSchoolQualityGuidance } from "../../utils/recordQualityGuidance";
 
 export default function ClubPage() {
     // State
@@ -17,17 +25,33 @@ export default function ClubPage() {
     const [schoolLevel, setSchoolLevel] = useState("middle"); // Default to middle
 
     // Removed 'grade' from student object, added 'individualActivity' for per-student activities
-    const [students, setStudents] = useState([{ id: 1, name: "", individualActivity: "", result: "", status: "idle" }]);
+    const [students, setStudents] = useState([{ id: 1, name: "", individualActivity: "", result: "", status: "idle", progress: "" }]);
     const [activities, setActivities] = useState([""]);
     const [additionalInstructions, setAdditionalInstructions] = useState(""); // 추가 지침 사항
     const [textLength, setTextLength] = useState("1500");
     const [manualLength, setManualLength] = useState("");
     const [isGenerating, setIsGenerating] = useState(false);
     const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL);
+    const [useWebSearchContext, setUseWebSearchContext] = useState(false);
     const [copiedId, setCopiedId] = useState(null);
     const fileInputRef = useRef(null);
     const activityInputRefs = useRef([]);
     const prevActivitiesLength = useRef(activities.length);
+    const {
+        openAIKeyInput,
+        setOpenAIKeyInput,
+        appliedOpenAIKey,
+        applyOpenAIKey,
+        clearOpenAIKey,
+        isOpenAIKeyApplied,
+        maskedOpenAIKey,
+        selectedOpenAIModel,
+        setSelectedOpenAIModel,
+    } = useOpenAIKey();
+    const isNvidiaSelected = isNvidiaModel(selectedModel);
+    const generationStatusText = isNvidiaSelected
+        ? "NVIDIA NIM 모델로 생성 중..."
+        : appliedOpenAIKey ? "OpenAI API key를 사용하여 생성 중..." : "생성 중...";
 
     useEffect(() => {
         if (activities.length > prevActivitiesLength.current) {
@@ -50,7 +74,7 @@ export default function ClubPage() {
         const newStudents = [...students];
         if (count > newStudents.length) {
             for (let i = newStudents.length + 1; i <= count; i++) {
-                newStudents.push({ id: i, name: "", individualActivity: "", result: "", status: "idle" });
+                newStudents.push({ id: i, name: "", individualActivity: "", result: "", status: "idle", progress: "" });
             }
         } else {
             newStudents.splice(count);
@@ -190,7 +214,7 @@ export default function ClubPage() {
     };
 
 
-    // cleanMetaInfo, truncateToCompleteSentence는 textProcessor에서 import됨
+    // 생성 결과 검증과 후처리는 generationHarness에서 내부 처리됨
 
     // 학생별 개별 활동과 공통 활동 간의 관련성 점수 계산
     const calculateRelevanceScore = (commonActivity, individualActivity) => {
@@ -206,7 +230,7 @@ export default function ClubPage() {
         return score;
     };
 
-    const generatePrompt = (student, selectedActivities, targetChars, individualActivity = "", model = "") => {
+    const generatePrompt = (student, selectedActivities, targetChars, individualActivity = "", model = "", searchContext = "") => {
         // Perspectives for variety
         const perspectives = [
             '특히 학생의 적극성과 참여도를 중심으로',
@@ -231,7 +255,8 @@ export default function ClubPage() {
             maxChar = targetChars;
         }
 
-        const lengthInstruction = getCharacterGuideline(targetChars);
+        const targetBytes = normalizeTargetBytes(textLength, manualLength);
+        const lengthInstruction = getCharacterGuideline(targetChars, targetBytes, getMinimumTargetBytes(targetBytes));
 
         const schoolLevelMap = {
             elementary: "초등학생",
@@ -254,6 +279,13 @@ export default function ClubPage() {
         const individualActivityText = individualActivity.trim()
             ? `\n\n[이 학생의 개별 활동 내용]\n${individualActivity}\n(위 개별 활동 내용과 공통 활동 내용을 연결하여 통합적으로 서술해 주세요.)`
             : "";
+        const searchContextText = searchContext.trim()
+            ? `\n\n[학생 개별 활동 내용 기반 웹 검색 보강 자료]\n${searchContext}\n(위 검색 보강 자료는 개별 활동을 정확히 이해하기 위한 배경 자료입니다. 학생이 실제로 입력한 활동과 공통 활동 내용을 우선하고, 검색 자료는 관련 개념·활동 맥락·쟁점 이해를 보강하는 데에만 사용하세요.)`
+            : "";
+        const highSchoolQualityGuidance = getClubHighSchoolQualityGuidance(schoolLevel);
+        const highSchoolQualityText = highSchoolQualityGuidance
+            ? `\n\n${highSchoolQualityGuidance}`
+            : "";
 
         const isLightweight_ = isLightweightModel(model || selectedModel);
 
@@ -266,7 +298,8 @@ ${clubContext}
 작성 관점: ${selectedPerspective} 서술하세요.
 
 [활동 내용 - 총 ${totalActivities}개, 모두 반영 필수]
-${activitiesText}${individualActivityText}
+${activitiesText}${individualActivityText}${searchContextText}
+${highSchoolQualityText}
 
 [활동별 할당량] ${activityAllocation}
 
@@ -275,6 +308,7 @@ ${activitiesText}${individualActivityText}
 ❌ 과거형 금지 (~했음, ~였음, ~되었음, ~하였음, ~보였음 전부 금지)
 ❌ 주어 금지 ("학생은", "OO는" 금지)
 ❌ 요약/마무리 문장 금지
+❌ '마지막으로', '끝으로', '마무리하며', '덧붙여', '추가로' 사용 금지
 
 [필수]
 ✅ 현재형 종결어미만 사용: ~함, ~임, ~음, ~보임, ~드러남
@@ -299,7 +333,8 @@ ${clubContext}
 작성 관점: ${selectedPerspective} 서술하세요.
 
 <활동 내용 - 총 ${totalActivities}개, 반드시 모두 반영>
-${activitiesText}${individualActivityText}
+${activitiesText}${individualActivityText}${searchContextText}
+${highSchoolQualityText}
 
 <작성 규칙>
 1. '학생은', 'OO는' 등 주어를 사용하지 않고, 활동 내용부터 바로 서술
@@ -310,7 +345,7 @@ ${activitiesText}${individualActivityText}
 6. 입력된 ${totalActivities}개 활동 내용을 모두 빠짐없이 서술하고, 입력에 없는 사건/실험 결과/도서명 등을 추가하지 않음
 7. 소논문, 특정 성명, 기관명, 상호명은 기재하지 않음
 8. 마지막 문장도 반드시 구체적인 활동 내용 서술로 끝냄
-9. '이러한', '이를 통해', '이와 같이', '앞으로', '향후', '결과적으로', '종합적으로'로 시작하는 요약/정리/마무리 문장 대신, 활동의 세부 과정이나 협력 모습을 추가 서술
+9. '이러한', '이를 통해', '이와 같이', '앞으로', '향후', '결과적으로', '종합적으로', '마지막으로', '끝으로', '마무리하며', '덧붙여', '추가로'로 시작하는 요약/정리/마무리 문장 대신, 활동의 세부 과정이나 협력 모습을 추가 서술
 
 ${lengthInstruction}
 
@@ -349,11 +384,9 @@ ${lengthInstruction}
             return;
         }
 
-        let targetChars = 490;
-        if (textLength === "1500") targetChars = 490;
-        else if (textLength === "1000") targetChars = 330;
-        else if (textLength === "600") targetChars = 200;
-        else if (textLength === "manual") targetChars = parseInt(manualLength) || 490;
+        const targetBytes = normalizeTargetBytes(textLength, manualLength);
+        const targetChars = normalizeTargetChars(textLength, manualLength);
+        const minTargetBytes = getMinimumTargetBytes(targetBytes);
 
         let selectedActivities = [...validActivities];
 
@@ -386,23 +419,72 @@ ${lengthInstruction}
         }
         // 350자 초과: 모든 활동 사용
 
-        const prompt = generatePrompt(student, selectedActivities, targetChars, student.individualActivity || "", selectedModel);
-
         try {
             updateStudent(student.id, "status", "loading");
-            const rawResult = await fetchStream({ prompt, additionalInstructions, model: selectedModel, targetChars });
-
-            let result = rawResult;
-            result = truncateToCompleteSentence(result, targetChars);
-            if (rawResult && result.length < rawResult.length) {
-                console.log(`[글자수 조정] 원본: ${rawResult.length}자 → ${result.length}자 (완전한 문장으로)`);
+            updateStudent(student.id, "progress", "생성 준비 중...");
+            let searchContext = "";
+            if (useWebSearchContext && student.individualActivity?.trim()) {
+                try {
+                    updateStudent(student.id, "progress", "웹 검색 보강 중...");
+                    const searchResult = await fetchSearchContext({
+                        subjectName: clubName,
+                        commonActivities: selectedActivities,
+                        individualActivity: student.individualActivity,
+                    });
+                    searchContext = searchResult.context || "";
+                    if (searchResult.query) {
+                        console.log(`[웹 검색 보강] 학생 ${student.id}: ${searchResult.query}`);
+                    }
+                } catch (searchError) {
+                    console.warn(`[웹 검색 보강 실패] 학생 ${student.id}: ${searchError.message}`);
+                }
             }
 
+            const promptModel = isNvidiaSelected ? selectedModel : appliedOpenAIKey ? `openai:${selectedOpenAIModel}` : selectedModel;
+            const prompt = generatePrompt(
+                student,
+                selectedActivities,
+                targetChars,
+                student.individualActivity || "",
+                promptModel,
+                searchContext
+            );
+            const generationResult = await generateWithSilentValidation({
+                prompt,
+                maxTargetBytes: targetBytes,
+                minTargetBytes,
+                targetChars,
+                mode: "record",
+                forbiddenTerms: [clubName, student.name],
+                maxRepairAttempts: 1,
+                generateOnce: (nextPrompt, { attempt, previousValidation }) => runGenerationWithProgress({
+                    attempt,
+                    previousValidation,
+                    provider: getGenerationProvider({ isNvidiaSelected, hasOpenAIKey: Boolean(appliedOpenAIKey) }),
+                    setProgress: (message) => updateStudent(student.id, "progress", message),
+                    run: () => isNvidiaSelected
+                        ? fetchNvidiaCompletion({ prompt: nextPrompt, additionalInstructions, targetChars, model: selectedModel })
+                        : appliedOpenAIKey
+                            ? fetchOpenAICompletion({ prompt: nextPrompt, additionalInstructions, apiKey: appliedOpenAIKey, targetChars, model: selectedOpenAIModel })
+                            : fetchStream({ prompt: nextPrompt, additionalInstructions, model: selectedModel, targetChars }),
+                }),
+            });
+
+            if (generationResult.repaired) {
+                console.log(`[내부 검증] 학생 ${student.id}: ${generationResult.attempts}회 시도 후 규칙 보정`);
+            }
+            if (!generationResult.validation.ok) {
+                console.warn(`[내부 검증] 학생 ${student.id}: 최종 결과 일부 규칙 확인 필요`, generationResult.validation.issues);
+            }
+
+            const result = generationResult.text;
             updateStudent(student.id, "result", result);
             updateStudent(student.id, "status", "success");
+            updateStudent(student.id, "progress", "");
         } catch (error) {
             console.error(error);
             updateStudent(student.id, "status", "error");
+            updateStudent(student.id, "progress", "");
             alert(`학생 ${student.id} 생성 실패: ${error.message}`);
         }
     };
@@ -642,32 +724,90 @@ ${lengthInstruction}
                         </div>
                         <h2>생성 옵션</h2>
                     </div>
-                    <div className="grid-2-cols items-end">
-                        <div className="form-group" style={{ marginBottom: 0 }}>
-                            <label className="form-label">글자수 제한</label>
-                            <select
-                                value={textLength}
-                                onChange={(e) => setTextLength(e.target.value)}
-                                className="form-select"
+                    <div className="grid-2-cols">
+                        <div className="flex flex-col gap-4">
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label className="form-label">글자수 제한</label>
+                                <select
+                                    value={textLength}
+                                    onChange={(e) => setTextLength(e.target.value)}
+                                    className="form-select"
+                                >
+                                    <option value="1500">1500byte (한글 약 490자)</option>
+                                    <option value="1000">1000byte (한글 약 333자)</option>
+                                    <option value="600">600byte (한글 약 200자)</option>
+                                    <option value="manual">직접 입력</option>
+                                </select>
+                                {textLength === "manual" && (
+                                    <input
+                                        type="number"
+                                        value={manualLength}
+                                        onChange={(e) => setManualLength(e.target.value)}
+                                        placeholder="byte 단위 입력 (예: 800)"
+                                        className="form-input mt-2"
+                                    />
+                                )}
+                            </div>
+
+                            <label
+                                className="form-label"
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'flex-start',
+                                    gap: '10px',
+                                    padding: '12px',
+                                    border: '1px solid #fed7aa',
+                                    borderRadius: '8px',
+                                    backgroundColor: '#fff7ed',
+                                    cursor: 'pointer',
+                                    lineHeight: 1.45
+                                }}
                             >
-                                <option value="1500">1500byte (한글 약 490자)</option>
-                                <option value="1000">1000byte (한글 약 333자)</option>
-                                <option value="600">600byte (한글 약 200자)</option>
-                                <option value="manual">직접 입력</option>
-                            </select>
-                            {textLength === "manual" && (
                                 <input
-                                    type="number"
-                                    value={manualLength}
-                                    onChange={(e) => setManualLength(e.target.value)}
-                                    placeholder="글자수 입력"
-                                    className="form-input mt-2"
+                                    type="checkbox"
+                                    checked={useWebSearchContext}
+                                    onChange={(e) => setUseWebSearchContext(e.target.checked)}
+                                    style={{ marginTop: '3px', flexShrink: 0 }}
                                 />
-                            )}
+                                <span>
+                                    <strong>학생 개별 활동 내용 웹 검색 보강</strong>
+                                    <br />
+                                    <span style={{ color: '#6b7280', fontSize: '0.8rem', fontWeight: 400 }}>
+                                        학생별 개별 활동 내용을 검색해 활동 주제, 개념, 쟁점의 맥락을 보강합니다.
+                                    </span>
+                                </span>
+                            </label>
+
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={generateAll}
+                                    disabled={isGenerating}
+                                    className="btn-primary flex-1"
+                                    style={{ padding: '12px', fontSize: '1.1rem' }}
+                                >
+                                    {isGenerating ? (
+                                        <>
+                                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                                            {generationStatusText}
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Wand2 size={20} /> AI 생성
+                                        </>
+                                    )}
+                                </button>
+                                <button
+                                    onClick={downloadExcel}
+                                    className="btn-secondary"
+                                    style={{ padding: '0 24px', display: 'flex', alignItems: 'center', gap: '8px' }}
+                                >
+                                    <Download size={20} /> 엑셀
+                                </button>
+                            </div>
                         </div>
 
-                        <div className="flex gap-4">
-                            <div className="form-group" style={{ marginBottom: 0, flex: 1 }}>
+                        <div className="flex flex-col gap-3">
+                            <div className="form-group" style={{ marginBottom: 0 }}>
                                 <label className="form-label">AI 모델</label>
                                 <select
                                     value={selectedModel}
@@ -679,30 +819,17 @@ ${lengthInstruction}
                                     ))}
                                 </select>
                             </div>
-                            <button
-                                onClick={generateAll}
-                                disabled={isGenerating}
-                                className="btn-primary"
-                                style={{ padding: '12px 24px', fontSize: '1.1rem', alignSelf: 'flex-end' }}
-                            >
-                                {isGenerating ? (
-                                    <>
-                                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                                        생성 중...
-                                    </>
-                                ) : (
-                                    <>
-                                        <Wand2 size={20} /> AI 생성
-                                    </>
-                                )}
-                            </button>
-                            <button
-                                onClick={downloadExcel}
-                                className="btn-secondary"
-                                style={{ padding: '0 24px', display: 'flex', alignItems: 'center', gap: '8px', alignSelf: 'flex-end' }}
-                            >
-                                <Download size={20} /> 엑셀
-                            </button>
+
+                            <OpenAIKeyControl
+                                openAIKeyInput={openAIKeyInput}
+                                setOpenAIKeyInput={setOpenAIKeyInput}
+                                applyOpenAIKey={applyOpenAIKey}
+                                clearOpenAIKey={clearOpenAIKey}
+                                isOpenAIKeyApplied={isOpenAIKeyApplied}
+                                maskedOpenAIKey={maskedOpenAIKey}
+                                selectedOpenAIModel={selectedOpenAIModel}
+                                setSelectedOpenAIModel={setSelectedOpenAIModel}
+                            />
                         </div>
                     </div>
                 </div>
@@ -822,14 +949,19 @@ ${lengthInstruction}
                                         {student.status === "loading" && (
                                             <div className="loading-overlay">
                                                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-2"></div>
-                                                <span style={{ fontSize: '0.9rem', fontWeight: 500, color: '#2563eb' }}>생성 중...</span>
+                                                <span style={{ fontSize: '0.9rem', fontWeight: 500, color: '#2563eb' }}>
+                                                    {student.progress || generationStatusText}
+                                                </span>
                                             </div>
                                         )}
                                     </div>
 
-                                    {/* 복사 버튼 */}
+                                    {/* 결과 정보 및 복사 버튼 */}
                                     {student.result && (
-                                        <div className="flex justify-end mt-2">
+                                        <div className="result-action-row">
+                                            <span className="result-byte-count">
+                                                {getUtf8ByteLength(student.result).toLocaleString()} byte
+                                            </span>
                                             <button
                                                 onClick={() => {
                                                     const copyText = (text) => {
