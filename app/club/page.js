@@ -14,6 +14,7 @@ import { generateWithSilentValidation } from "../../utils/generationHarness";
 import { getGenerationProvider, runGenerationWithProgress } from "../../utils/generationProgress";
 import { fetchSearchContext } from "../../utils/searchContextFetch";
 import { getClubHighSchoolQualityGuidance } from "../../utils/recordQualityGuidance";
+import { limitActivitiesByTargetChars, shouldSelectRandomFourActivities } from "../../utils/activitySelection";
 
 export default function ClubPage() {
     // State
@@ -277,7 +278,7 @@ export default function ClubPage() {
         ).join(", ");
 
         const individualActivityText = individualActivity.trim()
-            ? `\n\n[이 학생의 개별 활동 내용]\n${individualActivity}\n(위 개별 활동 내용과 공통 활동 내용을 연결하여 통합적으로 서술해 주세요.)`
+            ? `\n\n[이 학생의 개별 활동 내용]\n${individualActivity}\n(위 개별 활동 내용은 공통 활동을 보강하기 위한 자료입니다. 활동 내용 목록의 순서를 유지하고, 개별 활동 내용을 첫 문장이나 첫 활동처럼 우선 배치하지 않음. 공통 활동 흐름 안에서 필요한 곳에 자연스럽게 통합해 주세요.)`
             : "";
         const searchContextText = searchContext.trim()
             ? `\n\n[학생 개별 활동 내용 기반 웹 검색 보강 자료]\n${searchContext}\n(위 검색 보강 자료는 개별 활동을 정확히 이해하기 위한 배경 자료입니다. 학생이 실제로 입력한 활동과 공통 활동 내용을 우선하고, 검색 자료는 관련 개념·활동 맥락·쟁점 이해를 보강하는 데에만 사용하세요.)`
@@ -313,6 +314,7 @@ ${highSchoolQualityText}
 [필수]
 ✅ 현재형 종결어미만 사용: ~함, ~임, ~음, ~보임, ~드러남
 ✅ 위 ${totalActivities}개 활동을 모두 다양한 표현으로 서술
+✅ 첫 문장은 반드시 위 [활동 내용]의 활동1 공통 활동으로 시작하고, 개별 활동 내용이나 검색 보강 자료를 첫 활동처럼 앞세우지 않음
 ✅ 줄바꿈 없이 하나의 문단
 ✅ 오직 본문만 출력
 
@@ -343,9 +345,10 @@ ${highSchoolQualityText}
 4. 구체적인 활동 과정, 노력, 태도 변화를 중심으로 과정 중심 서술
 5. 줄바꿈 없이 하나의 문단으로 작성
 6. 입력된 ${totalActivities}개 활동 내용을 모두 빠짐없이 서술하고, 입력에 없는 사건/실험 결과/도서명 등을 추가하지 않음
-7. 소논문, 특정 성명, 기관명, 상호명은 기재하지 않음
-8. 마지막 문장도 반드시 구체적인 활동 내용 서술로 끝냄
-9. '이러한', '이를 통해', '이와 같이', '앞으로', '향후', '결과적으로', '종합적으로', '마지막으로', '끝으로', '마무리하며', '덧붙여', '추가로'로 시작하는 요약/정리/마무리 문장 대신, 활동의 세부 과정이나 협력 모습을 추가 서술
+7. 첫 문장은 반드시 위 <활동 내용>의 활동1 공통 활동으로 시작하고, [이 학생의 개별 활동 내용]이나 검색 보강 자료를 첫 활동처럼 앞세우지 않음
+8. 소논문, 특정 성명, 기관명, 상호명은 기재하지 않음
+9. 마지막 문장도 반드시 구체적인 활동 내용 서술로 끝냄
+10. '이러한', '이를 통해', '이와 같이', '앞으로', '향후', '결과적으로', '종합적으로', '마지막으로', '끝으로', '마무리하며', '덧붙여', '추가로'로 시작하는 요약/정리/마무리 문장 대신, 활동의 세부 과정이나 협력 모습을 추가 서술
 
 ${lengthInstruction}
 
@@ -389,9 +392,12 @@ ${lengthInstruction}
         const minTargetBytes = getMinimumTargetBytes(targetBytes);
 
         let selectedActivities = [...validActivities];
+        const forceRandomFourActivities = shouldSelectRandomFourActivities(additionalInstructions);
 
         // 동아리세특: 조건부 랜덤 셔플
-        if (student.individualActivity?.trim() && validActivities.length > 0) {
+        if (forceRandomFourActivities) {
+            selectedActivities = shuffleArray(validActivities).slice(0, Math.min(4, validActivities.length));
+        } else if (student.individualActivity?.trim() && validActivities.length > 0) {
             // 개별 활동이 있으면 관련성 높은 활동 우선 + 나머지 랜덤
             selectedActivities = [...validActivities].sort((a, b) => {
                 const scoreA = calculateRelevanceScore(a, student.individualActivity);
@@ -408,15 +414,7 @@ ${lengthInstruction}
         }
 
         // Activity Selection Logic based on Target Chars
-        if (targetChars < 80) {
-            selectedActivities = selectedActivities.slice(0, 1);
-        } else if (targetChars <= 150) {
-            selectedActivities = selectedActivities.slice(0, Math.min(2, selectedActivities.length));
-        } else if (targetChars <= 250) {
-            selectedActivities = selectedActivities.slice(0, Math.min(3, selectedActivities.length));
-        } else if (targetChars <= 350) {
-            selectedActivities = selectedActivities.slice(0, Math.min(4, selectedActivities.length));
-        }
+        selectedActivities = limitActivitiesByTargetChars(selectedActivities, targetChars);
         // 350자 초과: 모든 활동 사용
 
         try {
