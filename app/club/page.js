@@ -245,6 +245,17 @@ export default function ClubPage() {
         ];
 
         const selectedPerspective = perspectives[(student.id - 1) % perspectives.length];
+        const openingStyleGuides = [
+            "문제의식형: 활동 주제에 대한 궁금증이나 고민을 가지고 출발",
+            "탐구 과정형: 주제를 탐구하는 과정에서 보인 조사, 비교, 분석 중심",
+            "보고서 정리형: 보고서 작성을 통해 자료를 구조화하고 해석한 과정 중심",
+            "실험 설계형: 조건을 비교하거나 변인을 확인하는 실험 설계와 관찰 중심",
+            "자료 분석형: 관련 자료, 사례, 수치, 근거를 분석하며 생각을 확장한 과정 중심",
+            "협업 토의형: 팀원과 의견을 나누고 역할을 조율한 과정 중심",
+            "한계 개선형: 활동 중 발견한 한계나 오류를 보완하려는 시도 중심",
+            "발표 공유형: 정리한 내용을 발표하거나 공유하며 이해를 넓힌 과정 중심",
+        ];
+        const selectedOpeningStyle = openingStyleGuides[Math.floor(Math.random() * openingStyleGuides.length)];
 
         let minChar, maxChar;
         if (targetChars === 200) {
@@ -297,6 +308,7 @@ export default function ClubPage() {
 대상: ${targetLevel}
 ${clubContext}
 작성 관점: ${selectedPerspective} 서술하세요.
+첫 문장 시작 방식: ${selectedOpeningStyle}
 
 [활동 내용 - 총 ${totalActivities}개, 모두 반영 필수]
 ${activitiesText}${individualActivityText}${searchContextText}
@@ -315,7 +327,7 @@ ${highSchoolQualityText}
 ✅ 현재형 종결어미만 사용: ~함, ~임, ~음, ~보임, ~드러남
 ✅ 위 ${totalActivities}개 활동을 모두 다양한 표현으로 서술
 ✅ 첫 문장은 반드시 위 [활동 내용]의 활동1 공통 활동으로 시작하고, 개별 활동 내용이나 검색 보강 자료를 첫 활동처럼 앞세우지 않음
-✅ 활동1의 핵심 소재는 유지하되 활동명을 그대로 베껴 시작하지 않음. 예: "~보고서 작성을 통해", "~를 탐구하는 과정에서", "~에 대한 고민을 가지고"처럼 자연스럽게 변주
+✅ 활동1의 핵심 소재는 유지하되 활동명을 그대로 베껴 시작하지 않음. 첫 문장 시작 방식과 예시 표현을 그대로 복사하지 말고 입력 활동에 맞춰 새 문장으로 자연스럽게 변주
 ✅ 줄바꿈 없이 하나의 문단
 ✅ 오직 본문만 출력
 
@@ -334,6 +346,7 @@ ${lengthInstruction}
 대상: ${targetLevel}
 ${clubContext}
 작성 관점: ${selectedPerspective} 서술하세요.
+첫 문장 시작 방식: ${selectedOpeningStyle}
 
 <활동 내용 - 총 ${totalActivities}개, 반드시 모두 반영>
 ${activitiesText}${individualActivityText}${searchContextText}
@@ -347,7 +360,7 @@ ${highSchoolQualityText}
 5. 줄바꿈 없이 하나의 문단으로 작성
 6. 입력된 ${totalActivities}개 활동 내용을 모두 빠짐없이 서술하고, 입력에 없는 사건/실험 결과/도서명 등을 추가하지 않음
 7. 첫 문장은 반드시 위 <활동 내용>의 활동1 공통 활동으로 시작하고, [이 학생의 개별 활동 내용]이나 검색 보강 자료를 첫 활동처럼 앞세우지 않음
-8. 활동1의 핵심 소재는 유지하되 활동명을 그대로 베껴 시작하지 않음. 특히 "과학 실험 보고서 작성에서"처럼 고정된 명사구로 시작하지 말고, "~보고서 작성을 통해", "~를 탐구하는 과정에서", "~에 대한 고민을 가지고"처럼 활동 내용에 맞춰 첫 표현을 다양하게 변주함
+8. 활동1의 핵심 소재는 유지하되 활동명을 그대로 베껴 시작하지 않음. 특히 "과학 실험 보고서 작성에서"처럼 고정된 명사구로 시작하지 말고, 첫 문장 시작 방식과 예시 표현을 그대로 복사하지 말고 입력 활동에 맞춰 새 문장으로 다양하게 변주함
 9. 소논문, 특정 성명, 기관명, 상호명은 기재하지 않음
 10. 마지막 문장도 반드시 구체적인 활동 내용 서술로 끝냄
 11. '이러한', '이를 통해', '이와 같이', '앞으로', '향후', '결과적으로', '종합적으로', '마지막으로', '끝으로', '마무리하며', '덧붙여', '추가로'로 시작하는 요약/정리/마무리 문장 대신, 활동의 세부 과정이나 협력 모습을 추가 서술

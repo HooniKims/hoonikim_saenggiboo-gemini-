@@ -57,7 +57,12 @@ test("pages tell the model to start with selected activity one before individual
 test("club prompt avoids fixed report-writing openings and asks for varied starts", () => {
     const clubSource = readFileSync(new URL("../app/club/page.js", import.meta.url), "utf8");
 
+    assert.match(clubSource, /openingStyleGuides/);
+    assert.match(clubSource, /selectedOpeningStyle/);
+    assert.match(clubSource, /Math\.floor\(Math\.random\(\) \* openingStyleGuides\.length\)/);
     assert.match(clubSource, /활동1의 핵심 소재는 유지하되 활동명을 그대로 베껴 시작하지 않음/);
+    assert.match(clubSource, /첫 문장 시작 방식/);
+    assert.match(clubSource, /예시 표현을 그대로 복사하지 말고/);
     assert.match(clubSource, /보고서 작성을 통해/);
     assert.match(clubSource, /탐구하는 과정에서/);
     assert.match(clubSource, /고민을 가지고/);
