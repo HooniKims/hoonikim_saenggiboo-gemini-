@@ -298,7 +298,7 @@ export default function GwasetukPage() {
         const gradeDescriptions = {
             A: "A(매우 잘함) - 활동의 깊이와 수준이 높으며, 주도적 탐구·심화 질문·융합적 사고·구체적 성과가 분명히 드러나게 서술",
             B: "B(잘함) - 잘 해냄 기조를 유지하며 과제를 성실히 완수하고 핵심 개념을 이해한 모습, 참여 과정·자료 정리·협력 태도가 드러나게 서술하되 A 수준의 탁월함·돋보임·뛰어남으로 과장하지 않음",
-            C: "C(보통) - 부족한 부분이 있지만 노력하고 발전하려는 과정을 중심으로 쓰고, 기본 활동 참여·기초 이해·보완 의지·성장 가능성을 균형 있게 서술하되 비판하거나 비난하는 표현은 사용하지 않음"
+            C: "C(노력 필요) - 활동 기준점에 아직 충분히 도달하지 못한 부분을 분명히 드러내고, 기본 참여와 기초 이해의 제한, 보완해야 할 학습 요소, 추가적인 노력이 필요한 지점을 교사다운 문장으로 서술하되 비난하거나 낙인찍는 표현은 사용하지 않음"
         };
 
         const targetBytes = normalizeTargetBytes(textLength, manualLength);
@@ -313,7 +313,7 @@ export default function GwasetukPage() {
         // 과목명은 시스템 참고용으로만 전달 (출력에 절대 포함 금지)
         const subjectContext = subjectName ? `[시스템 참고 - 출력에 절대 포함 금지] 과목: ${subjectName}` : "";
 
-        const useActivityGrades = schoolLevel !== "high";
+        const useActivityGrades = true;
         const selectedActivityEntries = selectedActivities.map((entry, index) => {
             if (typeof entry === "string") {
                 return {
@@ -343,15 +343,17 @@ export default function GwasetukPage() {
 [등급별 표현 사전]
 - A 전용 권장 표현: 주도적으로 탐구함, 심화 질문을 제기함, 근거를 종합해 설명함, 새로운 관점으로 연결함, 구체적 성과를 보임, 높은 수준의 이해를 드러냄
 - B 전용 권장 표현: 과제를 안정적으로 수행함, 핵심 내용을 이해함, 맡은 역할을 충실히 수행함, 자료를 정리해 참여함, 활동 절차를 잘 따라가며 결과를 완성함, 잘 해냄 기조를 유지함
-- C 전용 권장 표현: 안내에 따라 활동에 참여함, 도움을 받아 기초적인 내용을 이해하려 노력함, 부족한 부분을 보완하려는 태도를 보임, 수행 과정에서 점차 개선하려는 모습이 드러남, 기본 과정을 익히려는 노력을 보임
+- C 전용 권장 표현: 기준점에 도달하지 못한 부분이 있어 추가 노력이 필요함, 기초 개념 이해를 더 보완할 필요가 있음, 활동 수행 과정에서 교사의 안내가 더 필요함, 결과 완성도와 표현의 구체성을 높이기 위한 연습이 요구됨, 기본 과정을 익히기 위한 지속적인 노력이 필요함
 
 [등급 간 대비 규칙]
 - A 활동은 주도성, 심화성, 구체적 성과가 뚜렷하게 느껴지게 씀
 - B 활동에는 탁월함·돋보임·뛰어남·심화·주도적 같은 A급 표현을 쓰지 않음
-- C 활동에는 안내에 따라, 도움을 받아, 기초적인 내용을 중심으로 쓰되 못함·부족함이 큼·소극적·미흡함 같은 비판적 낙인 표현은 쓰지 않음
+- C 활동에는 기준점에 아직 충분히 도달하지 못한 부분, 기초 이해의 제한, 추가적인 노력이 필요한 지점을 분명히 쓰되 못함·소극적·미흡함 같은 비판적 낙인 표현은 쓰지 않음
 - 같은 학생 안에서도 활동별 등급이 다르면 문장 강도와 성취 표현을 반드시 다르게 씀
+- A는 최고 수준의 성취, B는 노력하며 수행한 모습, C는 추가적인 노력이 필요한 모습으로 서술 기조를 구분함
+- C 활동은 B 수준의 안정적 수행으로 올려 쓰지 않음
 
-(각 활동은 해당 줄의 A/B/C 기준에 맞춰 깊이와 구체성을 조절하고, 다른 활동의 등급 기준을 섞어 적용하지 마세요. B와 C 활동은 A 수준의 최상위 표현으로 과장하지 마세요. C 활동은 부족한 부분이 있지만 노력하고 발전하려는 과정으로 서술하되 비판하거나 비난하는 표현은 사용하지 마세요. 선택한 A/B/C 등급 문구를 그대로 반복하지 말고 수행 깊이, 자율성, 구체성의 차이로 표현하세요.)`
+(각 활동은 해당 줄의 A/B/C 기준에 맞춰 깊이와 구체성을 조절하고, 다른 활동의 등급 기준을 섞어 적용하지 마세요. B 활동은 A 수준의 최상위 표현으로 과장하지 말고, C 활동은 B 수준의 안정적 수행으로 올려 쓰지 마세요. C 활동은 기준점에 아직 충분히 도달하지 못해 추가적인 노력이 필요한 지점을 드러내되 비난하거나 낙인찍는 표현은 사용하지 마세요. 선택한 A/B/C 등급 문구를 그대로 반복하지 말고 수행 깊이, 자율성, 구체성의 차이로 표현하세요.)`
             : "";
         const promptBasis = useActivityGrades ? "활동 내용과 활동별 A/B/C 기준" : "활동 내용";
 
@@ -429,7 +431,7 @@ ${activityGradeInstruction}
 8. 마지막 문장도 반드시 구체적인 활동 내용이나 학습 과정 서술로 끝냄
 9. '이러한', '이를 통해', '이와 같이', '앞으로', '향후', '결과적으로', '종합적으로', '마지막으로', '끝으로', '마무리하며', '덧붙여', '추가로'로 시작하는 요약/정리/마무리 문장 대신, 활동의 세부 과정이나 탐구 내용을 추가 서술
 10. 문학작품을 언급할 때는 반드시 작품명(작가명) 형식으로만 표기함. 예: 소나기(황순원), 운수좋은 날(현진건). '황순원의 소나기', '현진건의 운수좋은 날'처럼 쓰지 않음
-11. 활동별 A/B/C 기준이 있으면 A는 심화·주도성, B는 잘 해냄 기조의 성실한 수행·핵심 이해, C는 부족한 부분이 있지만 노력하고 발전하려는 과정 중심으로 표현 강도를 구분함
+11. 활동별 A/B/C 기준이 있으면 A는 최고 수준의 심화·주도성, B는 노력하며 수행한 성실한 참여·핵심 이해, C는 기준점에 아직 충분히 도달하지 못해 추가적인 노력이 필요한 지점 중심으로 표현 강도를 구분함
 
 ${lengthInstruction}
 
@@ -585,9 +587,7 @@ ${lengthInstruction}
                 "번호": s.id,
                 "성명": s.name,
             };
-            if (schoolLevel !== "high") {
-                row["활동별 성취도"] = activities.map((_, index) => `활동${index + 1}:${getActivityGrade(s, index)}`).join(", ");
-            }
+            row["활동별 성취도"] = activities.map((_, index) => `활동${index + 1}:${getActivityGrade(s, index)}`).join(", ");
             row["세부능력 및 특기사항"] = s.result;
             return row;
         });
@@ -937,33 +937,31 @@ ${lengthInstruction}
                                         />
                                     </div>
 
-                                    {schoolLevel !== "high" && (
-                                        <div className="activity-grade-panel">
-                                            <div className="activity-grade-title">활동별 성취도</div>
-                                            {activities.map((activity, activityIndex) => (
-                                                <div key={activityIndex} className="activity-grade-row">
-                                                    <span
-                                                        className="activity-grade-label"
-                                                        title={activity || `활동 ${activityIndex + 1}`}
-                                                    >
-                                                        활동 {activityIndex + 1}
-                                                    </span>
-                                                    <div className="activity-grade-buttons">
-                                                        {GRADE_OPTIONS.map((grade) => (
-                                                            <button
-                                                                key={grade}
-                                                                type="button"
-                                                                onClick={() => updateStudentActivityGrade(student.id, activityIndex, grade)}
-                                                                className={`btn-grade btn-grade-sm ${getActivityGrade(student, activityIndex) === grade ? `selected grade-${grade}` : ''}`}
-                                                            >
-                                                                {grade}
-                                                            </button>
-                                                        ))}
-                                                    </div>
+                                    <div className="activity-grade-panel">
+                                        <div className="activity-grade-title">활동별 성취도</div>
+                                        {activities.map((activity, activityIndex) => (
+                                            <div key={activityIndex} className="activity-grade-row">
+                                                <span
+                                                    className="activity-grade-label"
+                                                    title={activity || `활동 ${activityIndex + 1}`}
+                                                >
+                                                    활동 {activityIndex + 1}
+                                                </span>
+                                                <div className="activity-grade-buttons">
+                                                    {GRADE_OPTIONS.map((grade) => (
+                                                        <button
+                                                            key={grade}
+                                                            type="button"
+                                                            onClick={() => updateStudentActivityGrade(student.id, activityIndex, grade)}
+                                                            className={`btn-grade btn-grade-sm ${getActivityGrade(student, activityIndex) === grade ? `selected grade-${grade}` : ''}`}
+                                                        >
+                                                            {grade}
+                                                        </button>
+                                                    ))}
                                                 </div>
-                                            ))}
-                                        </div>
-                                    )}
+                                            </div>
+                                        ))}
+                                    </div>
 
                                     {/* 학생별 개별 활동 내용 입력 */}
                                     <div className="form-group" style={{ marginBottom: 0, marginTop: '8px' }}>

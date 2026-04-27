@@ -13,13 +13,14 @@ test("gwasetuk keeps per-student activity grades aligned with activity count", (
     assert.match(source, /updateStudentActivityGrade/);
 });
 
-test("gwasetuk renders compact per-activity A B C controls only below high school", () => {
-    assert.match(source, /schoolLevel !== "high"/);
+test("gwasetuk renders compact per-activity A B C controls for every school level", () => {
+    assert.doesNotMatch(source, /schoolLevel !== "high"/);
     assert.match(source, /activity-grade-panel/);
     assert.match(source, /activity-grade-row/);
     assert.match(source, /btn-grade-sm/);
     assert.match(source, /활동별 성취도/);
     assert.match(source, /onClick=\{\(\) => updateStudentActivityGrade\(student\.id, activityIndex, grade\)\}/);
+    assert.match(source, /row\["활동별 성취도"\]/);
 });
 
 test("gwasetuk activity grade panel lays out two activities per row without overflow", () => {
@@ -49,6 +50,7 @@ test("gwasetuk prompt applies the selected grade to each matching activity", () 
     assert.match(source, /selectedActivityEntries/);
     assert.match(source, /activityGradeInstruction/);
     assert.match(source, /gradeDescriptions\[entry\.grade\]/);
+    assert.match(source, /const useActivityGrades = true/);
     assert.match(source, /entry\.text/);
     assert.match(source, /entry\.originalIndex/);
     assert.doesNotMatch(source, /gradePrompts\[student\.grade\]/);
@@ -65,17 +67,18 @@ test("gwasetuk keeps randomized activity order even when individual activity exi
 test("gwasetuk prompt defines visibly different writing strength for A B C", () => {
     assert.match(source, /A\(매우 잘함\)/);
     assert.match(source, /B\(잘함\)/);
-    assert.match(source, /C\(보통\)/);
+    assert.match(source, /C\(노력 필요\)/);
     assert.match(source, /등급별 표현 사전/);
     assert.match(source, /A 전용 권장 표현/);
     assert.match(source, /B 전용 권장 표현/);
     assert.match(source, /C 전용 권장 표현/);
     assert.match(source, /등급 간 대비 규칙/);
     assert.match(source, /B 활동에는 탁월함·돋보임·뛰어남·심화·주도적 같은 A급 표현을 쓰지 않음/);
-    assert.match(source, /C 활동에는 안내에 따라|도움을 받아|기초적인 내용을/);
+    assert.match(source, /C 활동에는 기준점에 아직 충분히 도달하지 못한 부분/);
     assert.match(source, /잘 해냄 기조/);
-    assert.match(source, /부족한 부분이 있지만 노력하고 발전하려는 과정/);
-    assert.match(source, /비판하거나 비난하는 표현은 사용하지 않음/);
-    assert.match(source, /B와 C 활동은 A 수준의 최상위 표현으로 과장하지 마세요/);
+    assert.match(source, /추가적인 노력이 필요한 지점/);
+    assert.match(source, /비난하거나 낙인찍는 표현은 사용하지 않음/);
+    assert.match(source, /B는 노력하며 수행한 모습, C는 추가적인 노력이 필요한 모습/);
+    assert.match(source, /C 활동은 B 수준의 안정적 수행으로 올려 쓰지 않음/);
     assert.match(source, /선택한 A\/B\/C 등급 문구를 그대로 반복하지 말고/);
 });
