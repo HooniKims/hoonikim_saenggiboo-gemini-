@@ -16,7 +16,8 @@ export const AVAILABLE_MODELS = [
     { id: "gemma4:e2b", name: "Gemma 4 E2B", description: "가장 빠름, 간단 작업용", isLightweight: true, provider: "local", apiUrl: LMSTUDIO_API_URL, apiKey: LMSTUDIO_API_KEY, apiModel: LMSTUDIO_GEMMA_E2B_MODEL },
     { id: "lmstudio:gemma-4-12b-it", name: "Gemma 4 12B", description: "기본 모델, 속도와 품질 균형", isLightweight: false, provider: "local", apiUrl: LMSTUDIO_API_URL, apiKey: LMSTUDIO_API_KEY, apiModel: LMSTUDIO_GEMMA_12B_MODEL },
     { id: "lmstudio:gemma-4-26b-a4b-it-q4ks", name: "Gemma 4 26B Q4", description: "가장 느림, 품질 높음", isLightweight: false, provider: "local", apiUrl: LMSTUDIO_API_URL, apiKey: LMSTUDIO_API_KEY, apiModel: LMSTUDIO_GEMMA_26B_MODEL },
-    { id: "upstage:solar-pro2", name: "Upstage Solar Pro 2", description: "다중 활동과 성취 수준 반영에 강함", isLightweight: false, provider: "upstage" },
+    { id: "upstage:solar-pro2", name: "Upstage Solar Pro 2", description: "최고 품질 · 안정적인 속도", isLightweight: false, provider: "upstage" },
+    { id: "upstage:solar-open2", name: "Upstage Solar Open 2", description: "우수한 품질 · 빠른 속도", isLightweight: false, provider: "upstage" },
 ];
 
 export const DEFAULT_LOCAL_MODEL = "lmstudio:gemma-4-12b-it";

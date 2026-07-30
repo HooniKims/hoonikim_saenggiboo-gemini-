@@ -31,7 +31,7 @@ export default function OpenAIKeyControl({
                 {usesUpstageModel ? (
                     <>
                         <span style={{ display: "block" }}>
-                            Upstage Solar Pro 2는 서버에 설정된 API 키를 사용합니다.
+                            선택한 Upstage Solar 모델은 서버에 설정된 API 키를 사용합니다.
                         </span>
                         <span style={{ display: "block" }}>
                             별도의 OpenAI API Key 없이 바로 생성할 수 있습니다.
@@ -98,7 +98,7 @@ export default function OpenAIKeyControl({
                 </div>
                 <p style={{ fontSize: "0.78rem", color: isOpenAIKeyApplied ? "#2563eb" : "#6b7280", marginTop: "6px" }}>
                     {usesUpstageModel
-                        ? "현재 선택한 Solar Pro 2가 OpenAI 설정보다 우선 적용됩니다."
+                        ? "현재 선택한 Solar 모델이 OpenAI 설정보다 우선 적용됩니다."
                         : isOpenAIKeyApplied
                         ? `적용됨: ${maskedOpenAIKey} · AI 생성 시 ${getOpenAIModelLabel(selectedOpenAIModel)} 사용`
                         : "적용하지 않으면 로컬 LLM 모델로 생성합니다."}

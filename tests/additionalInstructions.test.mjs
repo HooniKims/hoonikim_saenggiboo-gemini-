@@ -365,17 +365,26 @@ test("fetchStream does not retry unrelated local server errors", async () => {
     assert.equal(callCount, 1);
 });
 
-test("AI model list exposes Upstage Solar Pro 2 as a server-backed option", () => {
-    const solar = AVAILABLE_MODELS.find((model) => model.id === "upstage:solar-pro2");
+test("AI model list distinguishes Solar Pro 2 and Solar Open 2 quality and speed", () => {
+    const solarModels = AVAILABLE_MODELS.filter((model) => model.provider === "upstage");
 
-    assert.deepEqual(solar, {
-        id: "upstage:solar-pro2",
-        name: "Upstage Solar Pro 2",
-        description: "다중 활동과 성취 수준 반영에 강함",
-        isLightweight: false,
-        provider: "upstage",
-    });
-    assert.equal(isUpstageModel(solar.id), true);
+    assert.deepEqual(solarModels, [
+        {
+            id: "upstage:solar-pro2",
+            name: "Upstage Solar Pro 2",
+            description: "최고 품질 · 안정적인 속도",
+            isLightweight: false,
+            provider: "upstage",
+        },
+        {
+            id: "upstage:solar-open2",
+            name: "Upstage Solar Open 2",
+            description: "우수한 품질 · 빠른 속도",
+            isLightweight: false,
+            provider: "upstage",
+        },
+    ]);
+    assert.equal(isUpstageModel("upstage:solar-open2"), true);
     assert.equal(isUpstageModel("lmstudio:gemma-4-12b-it"), false);
 });
 

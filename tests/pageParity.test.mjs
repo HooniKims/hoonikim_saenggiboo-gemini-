@@ -88,7 +88,7 @@ test("record generation pages give Solar extra repair attempts without changing 
     }
 });
 
-test("all generation pages route Solar Pro 2 through the Upstage API", () => {
+test("all generation pages route the selected Solar model through the Upstage API", () => {
     for (const relativePath of [
         "app/gwasetuk/page.js",
         "app/club/page.js",
@@ -101,6 +101,7 @@ test("all generation pages route Solar Pro 2 through the Upstage API", () => {
         assert.match(source, /usesUpstageModel=\{isUpstageSelected\}/);
         assert.match(source, /provider:\s*getGenerationProvider\(\{[\s\S]*?isUpstageSelected/);
         assert.match(source, /isUpstageSelected[\s\S]*?fetchUpstageCompletion/);
+        assert.match(source, /fetchUpstageCompletion\(\{[^}]*model:\s*selectedModel/);
         assert.match(source, /<label className="form-label">AI 모델<\/label>/);
     }
 });

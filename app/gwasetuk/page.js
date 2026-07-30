@@ -589,7 +589,7 @@ ${lengthInstruction}
                         previousValidation,
                         provider: "upstage",
                         setProgress: (message) => updateStudent(student.id, "progress", message),
-                        run: () => fetchUpstageCompletion({ prompt: nextPrompt, additionalInstructions, targetChars: generationTargetChars }),
+                        run: () => fetchUpstageCompletion({ prompt: nextPrompt, additionalInstructions, targetChars: generationTargetChars, model: selectedModel }),
                     }),
                 })
                 : await generateWithSilentValidation({
@@ -608,7 +608,7 @@ ${lengthInstruction}
                     run: () => isNvidiaSelected
                         ? fetchNvidiaCompletion({ prompt: nextPrompt, additionalInstructions, targetChars: generationTargetChars, model: selectedModel })
                         : isUpstageSelected
-                            ? fetchUpstageCompletion({ prompt: nextPrompt, additionalInstructions, targetChars: generationTargetChars })
+                            ? fetchUpstageCompletion({ prompt: nextPrompt, additionalInstructions, targetChars: generationTargetChars, model: selectedModel })
                         : appliedOpenAIKey
                             ? fetchOpenAICompletion({ prompt: nextPrompt, additionalInstructions, apiKey: appliedOpenAIKey, targetChars: generationTargetChars, model: selectedOpenAIModel })
                             : fetchStream({ prompt: nextPrompt, additionalInstructions, model: selectedModel, targetChars: generationTargetChars }),

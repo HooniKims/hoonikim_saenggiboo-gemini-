@@ -7,6 +7,7 @@ const DEFAULT_UPSTAGE_REASONING_EFFORT = "low";
 const DEFAULT_UPSTAGE_MAX_TOKENS = 16384;
 const DEFAULT_UPSTAGE_TIMEOUT_MS = 8000;
 const DEFAULT_UPSTAGE_TEMPERATURE = 0.1;
+const SELECTABLE_UPSTAGE_MODEL_IDS = new Set(["solar-pro2", "solar-open2"]);
 const MODEL_MAX_TOKENS = {
     "solar-mini": 16384,
     "solar-mini-250422": 16384,
@@ -21,6 +22,7 @@ const MODEL_MAX_TOKENS = {
     "syn-pro-251021": 16384,
 };
 const REASONING_MODEL_IDS = new Set([
+    "solar-open2",
     "solar-pro2",
     "solar-pro2-251215",
     "solar-pro3",
@@ -55,22 +57,25 @@ function getConfiguredTimeoutMs() {
     return Math.min(Math.max(Math.floor(parsed), 1000), 60000);
 }
 
-function getConfiguredTemperature() {
+function getConfiguredTemperature(model) {
+    if (model === "solar-open2") return 1;
     const parsed = Number(process.env.UPSTAGE_TEMPERATURE);
     if (!Number.isFinite(parsed)) return DEFAULT_UPSTAGE_TEMPERATURE;
     return Math.min(Math.max(parsed, 0), 2);
 }
 
-function getUpstageConfig() {
-    const model = process.env.UPSTAGE_MODEL?.trim() || DEFAULT_UPSTAGE_MODEL;
-    const reasoningEffort = process.env.UPSTAGE_REASONING_EFFORT?.trim() || DEFAULT_UPSTAGE_REASONING_EFFORT;
+function getUpstageConfig(requestedModel = "") {
+    const model = requestedModel || process.env.UPSTAGE_MODEL?.trim() || DEFAULT_UPSTAGE_MODEL;
+    const reasoningEffort = model === "solar-open2"
+        ? "none"
+        : process.env.UPSTAGE_REASONING_EFFORT?.trim() || DEFAULT_UPSTAGE_REASONING_EFFORT;
     return {
         apiKey: process.env.UPSTAGE_API_KEY?.trim() || "",
         apiUrl: process.env.UPSTAGE_API_URL?.trim() || DEFAULT_UPSTAGE_API_URL,
         model,
         reasoningEffort: supportsReasoning(model) ? reasoningEffort : "",
         maxTokens: getConfiguredMaxTokens(model),
-        temperature: getConfiguredTemperature(),
+        temperature: getConfiguredTemperature(model),
         timeoutMs: getConfiguredTimeoutMs(),
     };
 }
@@ -168,8 +173,8 @@ function extractContent(data) {
     return (content || "").trim();
 }
 
-async function callUpstage({ prompt, additionalInstructions, targetChars, outputType, forceMaximumTokens = false }) {
-    const config = getUpstageConfig();
+async function callUpstage({ prompt, additionalInstructions, targetChars, model, outputType, forceMaximumTokens = false }) {
+    const config = getUpstageConfig(model);
     const requestBody = {
         model: config.model,
         messages: [
@@ -182,6 +187,9 @@ async function callUpstage({ prompt, additionalInstructions, targetChars, output
     };
     if (config.reasoningEffort) {
         requestBody.reasoning_effort = config.reasoningEffort;
+    }
+    if (config.model === "solar-open2") {
+        requestBody.top_p = 1;
     }
 
     const response = await fetchWithTimeoutRetry(config.apiUrl, {
@@ -208,7 +216,11 @@ export async function POST(req) {
     try {
         const body = await req.json();
         const { prompt, additionalInstructions, targetChars, outputType = "record" } = body;
-        const config = getUpstageConfig();
+        const requestedModel = String(body.model || "").trim();
+        if (requestedModel && !SELECTABLE_UPSTAGE_MODEL_IDS.has(requestedModel)) {
+            return Response.json({ error: `지원하지 않는 Upstage 모델입니다: ${requestedModel}` }, { status: 400 });
+        }
+        const config = getUpstageConfig(requestedModel);
 
         if (!config.apiKey) {
             return Response.json({ error: ".env의 UPSTAGE_API_KEY 값이 필요합니다." }, { status: 400 });
@@ -221,6 +233,7 @@ export async function POST(req) {
             prompt,
             additionalInstructions,
             targetChars,
+            model: requestedModel,
             outputType,
         });
 
@@ -229,6 +242,7 @@ export async function POST(req) {
                 prompt: `${prompt}\n\n[분량 보정] 이전 응답에서 표시 가능한 본문이 생성되지 않았습니다. 추론은 최소화하고, message.content에 들어갈 본문 텍스트만 바로 출력하세요. reasoning만 작성하지 말고 반드시 최종 본문을 출력하세요.`,
                 additionalInstructions,
                 targetChars: Math.ceil((Number(targetChars) || 490) * 1.2),
+                model: requestedModel,
                 outputType,
                 forceMaximumTokens: true,
             });

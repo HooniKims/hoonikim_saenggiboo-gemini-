@@ -109,6 +109,59 @@ test("Upstage route sends Solar Pro 2 with stable reasoning effort and priority 
     assert.match(requestBody.messages[1].content, /\[다시 한번 강조\].*개인별 수행 내용을 기준으로 작성$/s);
 });
 
+test("Upstage route sends Solar Open 2 in direct response mode", async () => {
+    const originalFetch = globalThis.fetch;
+    const originalApiKey = process.env.UPSTAGE_API_KEY;
+    const originalModel = process.env.UPSTAGE_MODEL;
+    const originalEffort = process.env.UPSTAGE_REASONING_EFFORT;
+    const originalMaxTokens = process.env.UPSTAGE_MAX_TOKENS;
+    const originalTemperature = process.env.UPSTAGE_TEMPERATURE;
+    let requestBody = null;
+
+    process.env.UPSTAGE_API_KEY = "upstage-test-key";
+    process.env.UPSTAGE_MODEL = "solar-pro2";
+    process.env.UPSTAGE_REASONING_EFFORT = "low";
+    delete process.env.UPSTAGE_MAX_TOKENS;
+    process.env.UPSTAGE_TEMPERATURE = "0.1";
+
+    globalThis.fetch = async (_url, options) => {
+        requestBody = JSON.parse(options.body);
+        return Response.json({
+            choices: [
+                {
+                    message: { content: "자료를 비교하고 근거를 정리하여 발표함." },
+                    finish_reason: "stop",
+                },
+            ],
+        });
+    };
+
+    try {
+        const response = await POST(jsonRequest({
+            prompt: "과세특 본문을 작성하세요.",
+            targetChars: 490,
+            model: "solar-open2",
+        }));
+        const data = await response.json();
+
+        assert.equal(response.status, 200);
+        assert.equal(data.model, "solar-open2");
+    } finally {
+        globalThis.fetch = originalFetch;
+        restoreEnv("UPSTAGE_API_KEY", originalApiKey);
+        restoreEnv("UPSTAGE_MODEL", originalModel);
+        restoreEnv("UPSTAGE_REASONING_EFFORT", originalEffort);
+        restoreEnv("UPSTAGE_MAX_TOKENS", originalMaxTokens);
+        restoreEnv("UPSTAGE_TEMPERATURE", originalTemperature);
+    }
+
+    assert.equal(requestBody.model, "solar-open2");
+    assert.equal(requestBody.max_tokens, 131072);
+    assert.equal(requestBody.reasoning_effort, "none");
+    assert.equal(requestBody.temperature, 1);
+    assert.equal(requestBody.top_p, 1);
+});
+
 test("Upstage route uses the dedicated polite letter system message for home letters", async () => {
     const originalFetch = globalThis.fetch;
     const originalApiKey = process.env.UPSTAGE_API_KEY;
@@ -285,7 +338,7 @@ test("Upstage route chooses max tokens and reasoning by model", async () => {
     };
 
     try {
-        for (const model of ["solar-mini", "solar-open-2", "solar-pro2", "solar-pro3", "syn-pro"]) {
+        for (const model of ["solar-mini", "solar-open2", "solar-pro2", "solar-pro3", "syn-pro"]) {
             process.env.UPSTAGE_MODEL = model;
             const response = await POST(jsonRequest({
                 prompt: "과세특 본문을 작성하세요.",
@@ -305,7 +358,7 @@ test("Upstage route chooses max tokens and reasoning by model", async () => {
         requests.map((request) => [request.model, request.max_tokens, request.reasoning_effort]),
         [
             ["solar-mini", 16384, undefined],
-            ["solar-open-2", 131072, undefined],
+            ["solar-open2", 131072, "none"],
             ["solar-pro2", 16384, "low"],
             ["solar-pro3", 65536, "low"],
             ["syn-pro", 16384, "low"],

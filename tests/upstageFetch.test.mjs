@@ -19,6 +19,7 @@ test("fetchUpstageCompletion sends generation inputs to the server route", async
             prompt: "과세특을 작성하세요.",
             additionalInstructions: "입력 사실만 사용",
             targetChars: 393,
+            model: "upstage:solar-open2",
             outputType: "record",
         });
 
@@ -32,6 +33,7 @@ test("fetchUpstageCompletion sends generation inputs to the server route", async
         prompt: "과세특을 작성하세요.",
         additionalInstructions: "입력 사실만 사용",
         targetChars: 393,
+        model: "solar-open2",
         outputType: "record",
     });
 });
