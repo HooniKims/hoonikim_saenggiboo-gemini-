@@ -3,7 +3,7 @@ import { isUpstageModel } from "./streamFetch.js";
 export async function fetchUpstageCompletion({ prompt, additionalInstructions, targetChars, model, outputType = "record" }) {
     const selectedModel = isUpstageModel(model)
         ? String(model).replace(/^upstage:/, "")
-        : undefined;
+        : "solar-pro4";
     const response = await fetch("/api/upstage-generate", {
         method: "POST",
         headers: {

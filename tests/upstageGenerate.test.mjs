@@ -37,7 +37,7 @@ test("Upstage route asks for UPSTAGE_API_KEY when the env key is empty", async (
     }
 });
 
-test("Upstage route sends Solar Pro 2 with stable reasoning effort and priority instructions", async () => {
+test("Upstage route sends Solar Pro 4 in direct response mode with priority instructions", async () => {
     const originalFetch = globalThis.fetch;
     const originalApiKey = process.env.UPSTAGE_API_KEY;
     const originalApiUrl = process.env.UPSTAGE_API_URL;
@@ -76,7 +76,7 @@ test("Upstage route sends Solar Pro 2 with stable reasoning effort and priority 
         const data = await response.json();
 
         assert.equal(response.status, 200);
-        assert.equal(data.model, "solar-pro2");
+        assert.equal(data.model, "solar-pro4");
     } finally {
         globalThis.fetch = originalFetch;
         restoreEnv("UPSTAGE_API_KEY", originalApiKey);
@@ -88,9 +88,9 @@ test("Upstage route sends Solar Pro 2 with stable reasoning effort and priority 
 
     assert.equal(requestUrl, "https://api.upstage.ai/v1/chat/completions");
     assert.equal(requestHeaders.Authorization, "Bearer upstage-test-key");
-    assert.equal(requestBody.model, "solar-pro2");
-    assert.equal(requestBody.max_tokens, 16384);
-    assert.equal(requestBody.reasoning_effort, "low");
+    assert.equal(requestBody.model, "solar-pro4");
+    assert.equal(requestBody.max_tokens, 4096);
+    assert.equal(requestBody.reasoning_effort, "none");
     assert.equal(requestBody.temperature, 0.1);
     assert.equal(requestBody.stream, false);
     assert.match(requestBody.messages[0].content, /현재형 명사 종결어미/);
@@ -119,7 +119,7 @@ test("Upstage route sends Solar Open 2 in direct response mode", async () => {
     let requestBody = null;
 
     process.env.UPSTAGE_API_KEY = "upstage-test-key";
-    process.env.UPSTAGE_MODEL = "solar-pro2";
+    process.env.UPSTAGE_MODEL = "solar-pro4";
     process.env.UPSTAGE_REASONING_EFFORT = "low";
     delete process.env.UPSTAGE_MAX_TOKENS;
     process.env.UPSTAGE_TEMPERATURE = "0.1";
@@ -308,8 +308,8 @@ test("Upstage route retries reasoning-only length responses with the model token
     }
 
     assert.equal(calls.length, 2);
-    assert.equal(calls[0].max_tokens, 16384);
-    assert.equal(calls[1].max_tokens, 16384);
+    assert.equal(calls[0].max_tokens, 4096);
+    assert.equal(calls[1].max_tokens, 4096);
     assert.match(calls[1].messages[1].content, /추론은 최소화하고/);
 });
 
@@ -338,7 +338,7 @@ test("Upstage route chooses max tokens and reasoning by model", async () => {
     };
 
     try {
-        for (const model of ["solar-mini", "solar-open2", "solar-pro2", "solar-pro3", "syn-pro"]) {
+        for (const model of ["solar-mini", "solar-open2", "solar-pro2", "solar-pro3", "solar-pro4", "syn-pro"]) {
             process.env.UPSTAGE_MODEL = model;
             const response = await POST(jsonRequest({
                 prompt: "과세특 본문을 작성하세요.",
@@ -361,6 +361,7 @@ test("Upstage route chooses max tokens and reasoning by model", async () => {
             ["solar-open2", 131072, "none"],
             ["solar-pro2", 16384, "low"],
             ["solar-pro3", 65536, "low"],
+            ["solar-pro4", 4096, "none"],
             ["syn-pro", 16384, "low"],
         ],
     );

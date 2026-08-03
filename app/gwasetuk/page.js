@@ -616,7 +616,7 @@ ${lengthInstruction}
                 });
 
             const completedModel = generationResult.provider === "upstage"
-                ? "upstage:solar-pro2"
+                ? "upstage:solar-pro4"
                 : selectedModel;
             console.info(`[생성 완료] 모델=${completedModel} 시도=${generationResult.attempts} 최종=${getUtf8ByteLength(generationResult.text)}byte 검증=${generationResult.validation.ok ? "통과" : "경고"}`);
 

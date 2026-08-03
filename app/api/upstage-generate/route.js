@@ -2,12 +2,12 @@ import { getLetterSystemMessage, getStandardSystemMessage } from "../../../utils
 import { finalizeGeneratedText } from "../../../utils/generationHarness.js";
 
 const DEFAULT_UPSTAGE_API_URL = "https://api.upstage.ai/v1/chat/completions";
-const DEFAULT_UPSTAGE_MODEL = "solar-pro2";
+const DEFAULT_UPSTAGE_MODEL = "solar-pro4";
 const DEFAULT_UPSTAGE_REASONING_EFFORT = "low";
 const DEFAULT_UPSTAGE_MAX_TOKENS = 16384;
 const DEFAULT_UPSTAGE_TIMEOUT_MS = 8000;
 const DEFAULT_UPSTAGE_TEMPERATURE = 0.1;
-const SELECTABLE_UPSTAGE_MODEL_IDS = new Set(["solar-pro2", "solar-open2"]);
+const SELECTABLE_UPSTAGE_MODEL_IDS = new Set(["solar-pro4", "solar-open2"]);
 const MODEL_MAX_TOKENS = {
     "solar-mini": 16384,
     "solar-mini-250422": 16384,
@@ -18,6 +18,8 @@ const MODEL_MAX_TOKENS = {
     "solar-pro2-251215": 16384,
     "solar-pro3": 65536,
     "solar-pro3-260323": 65536,
+    "solar-pro4": 4096,
+    "solar-pro4-260806": 4096,
     "syn-pro": 16384,
     "syn-pro-251021": 16384,
 };
@@ -27,6 +29,8 @@ const REASONING_MODEL_IDS = new Set([
     "solar-pro2-251215",
     "solar-pro3",
     "solar-pro3-260323",
+    "solar-pro4",
+    "solar-pro4-260806",
     "syn-pro",
     "syn-pro-251021",
 ]);
@@ -40,6 +44,7 @@ const OUTPUT_ONLY_INSTRUCTION = `【출력 원칙】
 - 같은 활동을 서로 다른 관찰 관점으로 풀어 쓰는 것은 허용하되, 입력에 없는 사실인 작품명, 수상, 기관, 수치, 도구, 실험 결과, 점수 같은 검증 불가능한 구체 사실은 만들지 않습니다.`;
 
 function getConfiguredMaxTokens(model) {
+    if (model === "solar-pro4" || model === "solar-pro4-260806") return MODEL_MAX_TOKENS[model];
     const parsed = Number(process.env.UPSTAGE_MAX_TOKENS);
     if (!Number.isFinite(parsed) || parsed <= 0) {
         return MODEL_MAX_TOKENS[model] || DEFAULT_UPSTAGE_MAX_TOKENS;
@@ -66,7 +71,7 @@ function getConfiguredTemperature(model) {
 
 function getUpstageConfig(requestedModel = "") {
     const model = requestedModel || process.env.UPSTAGE_MODEL?.trim() || DEFAULT_UPSTAGE_MODEL;
-    const reasoningEffort = model === "solar-open2"
+    const reasoningEffort = model === "solar-open2" || model === "solar-pro4" || model === "solar-pro4-260806"
         ? "none"
         : process.env.UPSTAGE_REASONING_EFFORT?.trim() || DEFAULT_UPSTAGE_REASONING_EFFORT;
     return {

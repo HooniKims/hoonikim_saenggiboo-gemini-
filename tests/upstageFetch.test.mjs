@@ -11,7 +11,7 @@ test("fetchUpstageCompletion sends generation inputs to the server route", async
     globalThis.fetch = async (url, options) => {
         requestUrl = url;
         requestBody = JSON.parse(options.body);
-        return Response.json({ result: "자료를 분석하고 결과를 발표함.", model: "solar-pro2" });
+        return Response.json({ result: "자료를 분석하고 결과를 발표함.", model: "solar-open2" });
     };
 
     try {
@@ -36,4 +36,27 @@ test("fetchUpstageCompletion sends generation inputs to the server route", async
         model: "solar-open2",
         outputType: "record",
     });
+});
+
+test("fetchUpstageCompletion uses Solar Pro 4 for local-model fallback generation", async () => {
+    const originalFetch = globalThis.fetch;
+    let requestBody = null;
+
+    globalThis.fetch = async (_url, options) => {
+        requestBody = JSON.parse(options.body);
+        return Response.json({ result: "자료를 분석하고 결과를 발표함.", model: "solar-pro4" });
+    };
+
+    try {
+        await fetchUpstageCompletion({
+            prompt: "과세특을 작성하세요.",
+            targetChars: 393,
+            model: "lmstudio:gemma-4-12b-it",
+            outputType: "record",
+        });
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+
+    assert.equal(requestBody.model, "solar-pro4");
 });

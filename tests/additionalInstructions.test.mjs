@@ -365,21 +365,21 @@ test("fetchStream does not retry unrelated local server errors", async () => {
     assert.equal(callCount, 1);
 });
 
-test("AI model list distinguishes Solar Pro 2 and Solar Open 2 quality and speed", () => {
+test("AI model list describes Solar Pro 4 and Solar Open 2 by their strongest record use cases", () => {
     const solarModels = AVAILABLE_MODELS.filter((model) => model.provider === "upstage");
 
     assert.deepEqual(solarModels, [
         {
-            id: "upstage:solar-pro2",
-            name: "Upstage Solar Pro 2",
-            description: "최고 품질 · 안정적인 속도",
+            id: "upstage:solar-pro4",
+            name: "Upstage Solar Pro 4",
+            description: "최고 품질 · 세특·행발 추천",
             isLightweight: false,
             provider: "upstage",
         },
         {
             id: "upstage:solar-open2",
             name: "Upstage Solar Open 2",
-            description: "우수한 품질 · 빠른 속도",
+            description: "빠른 속도 · 동아리 작성 강점",
             isLightweight: false,
             provider: "upstage",
         },
