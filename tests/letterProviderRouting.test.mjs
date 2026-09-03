@@ -92,7 +92,7 @@ test("NVIDIA letter requests use a dedicated polite letter system message", asyn
     }
 });
 
-test("local generate API uses lm.alluser.site and the dedicated letter system message", async () => {
+test("local generate API uses lm.alluser.kr and the dedicated letter system message", async () => {
     const originalFetch = global.fetch;
     const calls = [];
     global.fetch = async (url, options) => {
@@ -110,9 +110,9 @@ test("local generate API uses lm.alluser.site and the dedicated letter system me
         }));
 
         assert.equal(response.status, 200);
-        assert.equal(calls[0].url, "https://lm.alluser.site/v1/chat/completions");
-        assert.equal(calls[0].options.headers.Origin, "https://lm.alluser.site");
-        assert.equal(calls[0].options.headers.Referer, "https://lm.alluser.site/");
+        assert.equal(calls[0].url, "https://lm.alluser.kr/v1/chat/completions");
+        assert.equal(calls[0].options.headers.Origin, "https://lm.alluser.kr");
+        assert.equal(calls[0].options.headers.Referer, "https://lm.alluser.kr/");
         const requestBody = JSON.parse(calls[0].options.body);
         const systemMessage = requestBody.messages[0].content;
         assert.match(systemMessage, /학기말 가정통신문 작성 전문가/);

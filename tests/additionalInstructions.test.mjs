@@ -215,7 +215,7 @@ test("local model list only exposes LM Studio-backed Gemma models", async () => 
     assert.deepEqual(localModels.map(getModelOptionLabel), [
         "Gemma 4 E4B - 빠름, 품질 보통",
         "Gemma 4 E2B - 가장 빠름, 간단 작업용",
-        "Gemma 4 12B - 기본 모델, 속도와 품질 균형",
+        "Gemma 4 12B - Solar 오류 시 자동 대체 · 균형형",
         "Gemma 4 26B Q4 - 가장 느림, 품질 높음",
     ]);
 
@@ -251,10 +251,10 @@ test("local model list only exposes LM Studio-backed Gemma models", async () => 
 
     assert.equal(requests.length, 4);
     assert.deepEqual(requests.map((request) => request.url), [
-        "https://lm.alluser.site/v1/chat/completions",
-        "https://lm.alluser.site/v1/chat/completions",
-        "https://lm.alluser.site/v1/chat/completions",
-        "https://lm.alluser.site/v1/chat/completions",
+        "https://lm.alluser.kr/v1/chat/completions",
+        "https://lm.alluser.kr/v1/chat/completions",
+        "https://lm.alluser.kr/v1/chat/completions",
+        "https://lm.alluser.kr/v1/chat/completions",
     ]);
     assert.deepEqual(requests.map((request) => request.body.model), [
         "google/gemma-4-e4b",
@@ -262,7 +262,7 @@ test("local model list only exposes LM Studio-backed Gemma models", async () => 
         "gemma-4-12b-it",
         "gemma-4-26b-a4b-it",
     ]);
-    assert.equal(requests.every((request) => request.headers["X-API-Key"] === "gudgns0411skaluv2018tjdbs130429"), true);
+    assert.equal(requests.every((request) => request.headers["X-API-Key"] === undefined), true);
     assert.equal(requests.every((request) => request.body.reasoning_effort === "none"), true);
 });
 
@@ -372,7 +372,7 @@ test("AI model list describes Solar Pro 4 and Solar Open 2 by their strongest re
         {
             id: "upstage:solar-pro4",
             name: "Upstage Solar Pro 4",
-            description: "최고 품질 · 세특·행발 추천",
+            description: "기본 모델 · 세특·행발 최고 품질",
             isLightweight: false,
             provider: "upstage",
         },
@@ -388,10 +388,10 @@ test("AI model list describes Solar Pro 4 and Solar Open 2 by their strongest re
     assert.equal(isUpstageModel("lmstudio:gemma-4-12b-it"), false);
 });
 
-test("unknown local model fallback also uses lm.alluser.site", () => {
+test("unknown local model fallback also uses lm.alluser.kr", () => {
     const config = getLocalModelConfig("unknown-model");
 
-    assert.equal(config.apiUrl, "https://lm.alluser.site");
+    assert.equal(config.apiUrl, "https://lm.alluser.kr");
 });
 
 test("OpenAI model list exposes only GPT-5.4 nano", () => {

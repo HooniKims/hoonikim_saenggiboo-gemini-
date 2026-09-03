@@ -184,11 +184,11 @@ TAVILY_API_KEY=your_tavily_api_key
 원격 LM Studio 서버를 사용할 때는 아래 값을 확인합니다.
 
 ```env
-LMSTUDIO_API_URL=https://lm.alluser.site
-LMSTUDIO_API_KEY=your_api_key
+NEXT_PUBLIC_LMSTUDIO_API_URL=https://lm.alluser.kr
+NEXT_PUBLIC_LMSTUDIO_API_KEY=your_api_key
 ```
 
-API 키가 들어 있는 `.env` 파일은 GitHub에 올리면 안 됩니다.
+Netlify에서는 `Site configuration > Environment variables`에 `UPSTAGE_API_KEY`, `UPSTAGE_MODEL=solar-pro4`와 위 `NEXT_PUBLIC_LMSTUDIO_*` 값을 등록한 뒤 다시 배포합니다. `NEXT_PUBLIC_` 값은 브라우저 번들에 포함되므로 LM Studio 키는 완전한 비밀값이 아니며, 프록시의 CORS·호출 경로 제한과 함께 사용해야 합니다. 실제 API 키가 들어 있는 `.env` 파일은 GitHub에 올리면 안 됩니다.
 
 ## 결과를 확인할 때 꼭 볼 것
 

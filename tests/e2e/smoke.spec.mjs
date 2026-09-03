@@ -57,7 +57,7 @@ test("행발 생성 파이프라인이 문장 중간에 마침표를 삽입하�
     });
 
     // 로컬 LLM(LM Studio) 모킹: OpenAI 호환 chat.completions 응답
-    await page.route("**://lm.alluser.site/**", async (route) => {
+    await page.route("**://lm.alluser.kr/**", async (route) => {
         await route.fulfill({
             status: 200,
             contentType: "application/json",

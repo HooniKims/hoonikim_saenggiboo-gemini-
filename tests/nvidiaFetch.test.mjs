@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
     AVAILABLE_MODELS,
+    DEFAULT_LOCAL_MODEL,
     DEFAULT_MODEL,
     getModelOptionLabel,
     getNvidiaModelId,
@@ -21,8 +22,9 @@ test("AI model list hides NVIDIA cloud models", () => {
     assert.equal(getNvidiaModelId("nvidia:google/gemma-4-31b-it"), "google/gemma-4-31b-it");
 });
 
-test("default model uses LM Studio Gemma 4 12B local model", () => {
-    assert.equal(DEFAULT_MODEL, "lmstudio:gemma-4-12b-it");
+test("default model uses Solar Pro 4 and keeps Gemma 4 12B as the local fallback", () => {
+    assert.equal(DEFAULT_MODEL, "upstage:solar-pro4");
+    assert.equal(DEFAULT_LOCAL_MODEL, "lmstudio:gemma-4-12b-it");
     assert.equal(isNvidiaModel(DEFAULT_MODEL), false);
 });
 
